@@ -5,7 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Safe Deli — Tachileik Marketplace</title>
 <!--
-  Safe Deli Mini App v19.3 (direct order auto-send to the bot, 2026-11-12)
+  Safe Deli Mini App v19.4 (real-Telegram send guard + readable receipt location, 2026-11-12)
+  - v19.4 FALSE-SENT FIX (owner video 2026-11-12 21:12-21:16,
+    reproduced in REAL headless Chrome): the page loads the
+    official Telegram script, and outside Telegram that script
+    still defines a WebApp object whose sendData silently does
+    nothing (no proxy, no notify, no iframe parent — it never
+    throws), so v19.3 read "did not throw" as "sent". The
+    guard now requires a REAL Telegram launch: non-empty
+    initData + a user id + query_id (keyboard-button launch,
+    the only launch where Telegram allows sendData). Every
+    render site shows sent ONLY for such a session. The 8:55 PM
+    Telegram order also never arrived (owner 21:33) — see the
+    bot-side follow-up in the v19.4 report; the app cannot
+    verify delivery, only the launch context.
+  - v19.4 READABLE LOCATION (same video): the receipt text
+    printed the percent-encoded Maps search URL for a written
+    address. Human text now shows the PLAIN address (GPS pin
+    keeps the readable q=lat,lon link); the encoded URL stays
+    only in the machine payload.
   - v19.3 DIRECT AUTO-SEND (owner 2026-11-12 18:54): the old
     submitOrder gate demanded tg.initDataUnsafe.receiver, but
     Telegram only provides `receiver` for attachment-menu
@@ -1472,6 +1490,33 @@ function ic(name, cls) {
    HELPERS + STATE
    ===================================================================== */
 var tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+/* v19.4 REAL-TELEGRAM GUARD (owner video 2026-11-12 21:14 — false
+   "sent" in Chrome, reproduced in real headless Chrome): the page
+   loads the official Telegram script, and outside Telegram that
+   script STILL defines window.Telegram.WebApp whose sendData
+   silently does nothing (its postEvent has no proxy, no
+   external.notify and no iframe parent — it calls a no-op callback
+   and never throws). v19.3 removed the receiver gate, so "sendData
+   did not throw" was read as "sent". A send can only reach the bot
+   from a REAL Telegram launch: initData is a non-empty signed
+   string there ('' everywhere else), initDataUnsafe.user.id is
+   present, and initDataUnsafe.query_id marks the keyboard-button
+   launch — the only launch where Telegram allows sendData. The
+   8:55 PM Telegram order also never arrived (owner 21:33), so
+   "did not throw" alone is never treated as delivery: without all
+   four signals the app falls back to the manual panel. */
+function tgCanSend() {
+  if (!tg || typeof tg.sendData !== "function") return false;
+  if (typeof tg.initData !== "string" || tg.initData.length === 0) return false;
+  if (!tg.initDataUnsafe || !tg.initDataUnsafe.user || tg.initDataUnsafe.user.id == null) return false;
+  if (!tg.initDataUnsafe.query_id) return false;
+  return true;
+}
+/* v19.4: an order counts as sent ONLY when it was marked sent in a
+   session that could really send (tgCanSend). A stored sent=true
+   from an earlier session can never render as sent in plain Chrome
+   or in a menu-button / direct-link launch. */
+function orderSent(o) { return !!(o && o.sent && tgCanSend()); }
 if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
 /* =====================================================================
    v11: OWNER-ONLY SAMPLE SHOPS (owner 2026-11-12 02:47) — sample shops
@@ -2933,9 +2978,12 @@ function requestShopVideo(shopId) {
   var s = shopById(shopId);
   if (!s) return;
   var payload = { type: "request_shop_video", shop_id: s.id, shop_name: s.name };
-  if (tg && tg.sendData) {
-    try { tg.sendData(JSON.stringify(payload)); } catch (e) {}
-    toast(t("shopVideoSent"));
+  /* v19.4: same cause as the order receipt — outside Telegram
+     the official script's sendData silently does nothing, so the
+     "sent" toast needs the real-launch guard too. */
+  if (tgCanSend()) {
+    try { tg.sendData(JSON.stringify(payload)); toast(t("shopVideoSent")); }
+    catch (e) { openModal(t("shopVideoTitle"), t("shopVideoNoTg"), []); }
   } else {
     openModal(t("shopVideoTitle"), t("shopVideoNoTg"), []);
   }
@@ -3185,9 +3233,22 @@ function buildOrderText(o) {
   L.push("ပစ္စည်း စုစုပေါင်း: " + (ct.known ? fmtBahtMy(ct.total) : "Safe Deli က အတည်ပြုပေးမည်"));
   L.push("ယူရမည့်နေရာ: " + o.shop);
   L.push("ပို့ရမည့်နေရာ: " + o.dropoff);
+  /* v19.4 READABLE LOCATION (owner video 2026-11-12 21:14): the
+     human-readable text NEVER carries a percent-encoded string —
+     a written address used to print its encoded Maps search URL.
+     GPS pin keeps the readable q=lat,lon link; a written address
+     prints the PLAIN address; a pasted link prints only if it has
+     no % sequences, else its decoded form. The encoded URL stays
+     ONLY in the machine payload (customer_location.maps_url). */
   var cl = o.customer_location || custLocForPayload();
-  if (cl && cl.maps_url) L.push("တည်နေရာ (GPS/Maps): " + cl.maps_url);
-  else if (cl && cl.address) L.push("တည်နေရာ: " + cl.address);
+  var locLine = "";
+  if (cl) {
+    if (cl.lat != null && cl.lon != null) locLine = "တည်နေရာ (GPS/Maps): " + cl.maps_url;
+    else if (cl.address) locLine = "တည်နေရာ: " + cl.address;
+    else if (cl.maps_url && cl.maps_url.indexOf("%") === -1) locLine = "တည်နေရာ (GPS/Maps): " + cl.maps_url;
+    else if (cl.maps_url) { try { locLine = "တည်နေရာ (GPS/Maps): " + decodeURIComponent(cl.maps_url); } catch (e) { locLine = ""; } }
+  }
+  if (locLine) L.push(locLine);
   L.push("နာမည်: " + o.name);
   L.push("ဖုန်း: " + o.phone);
   if (o.note) L.push("မှတ်ချက်: " + o.note);
@@ -3207,17 +3268,19 @@ function locationForOrder() {
   return "";
 }
 function sendOrderDirect(payload) {
-  /* v19.3: returns true only when tg.sendData accepted the payload
-     (did not throw). Telegram's sendData works ONLY for
-     keyboard-button launches and closes the Mini App at once;
-     outside Telegram (Chrome file view, menu-button / direct-link
-     launch) it is absent or throws — the caller rolls the order
-     back to unsent and shows the manual panel (on-screen text +
-     copy + open bot + screenshot), never claiming sent. The payload
-     is the same shape the bot's parse_mini_app_order accepts; over
-     Telegram's 4096-byte limit it is retried once without the
-     `text` field, which the bot never reads. */
-  if (!tg || typeof tg.sendData !== "function") return false;
+  /* v19.4: returns true only when the payload really could go
+     to the bot. tgCanSend() requires a REAL Telegram launch
+     (non-empty initData + user id + query_id); outside Telegram
+     the official script's sendData silently does nothing and never
+     throws, so "did not throw" alone is NOT a send (owner video
+     2026-11-12 21:14, reproduced in real headless Chrome). On
+     false the caller rolls the order back to unsent and shows the
+     manual panel (on-screen text + copy + open bot + screenshot),
+     never claiming sent. The payload is the same shape the bot's
+     parse_mini_app_order accepts; over Telegram's 4096-byte limit
+     it is retried once without the `text` field, which the bot
+     never reads. */
+  if (!tgCanSend()) return false;
   var json = JSON.stringify(payload);
   try { tg.sendData(json); return true; } catch (e) {}
   if (json.length > 4000) {
@@ -3299,7 +3362,7 @@ function submitOrder(ev) {
 }
 function showReceipt(order) {
   var okIcon = $("receiptOkIcon");
-  if (order.sent) {
+  if (orderSent(order)) {
     $("receiptTitle").textContent = t("receiptSentT");
     $("receiptSub").textContent = t("receiptSentD");
     okIcon.innerHTML = ic("check", "");
@@ -3311,13 +3374,13 @@ function showReceipt(order) {
   $("receiptBody").innerHTML =
     '<div class="summary"><div class="sum-row"><span>' + t("shopShort") + '</span><b>' + esc(order.shop) + '</b></div>' +
     '<div class="sum-row"><span>' + t("orderTime") + '</span><b>' + esc(fmtDate(order.ts)) + '</b></div>' +
-    '<div class="sum-row"><span>' + t("statusLabel") + '</span><b>' + (order.sent ? t("statusSent") : t("statusCopy")) + '</b></div></div>' +
+    '<div class="sum-row"><span>' + t("statusLabel") + '</span><b>' + (orderSent(order) ? t("statusSent") : t("statusCopy")) + '</b></div></div>' +
     '<div class="order-text-label">' + t("orderTextLabel") + '</div>' +
     '<div class="receipt-box">' + esc(order.text) + '</div>' +
     '<div class="copy-note" id="copyNote"></div>' +
     '<div class="send-col">' +
     '<button class="cta big" type="button" id="copyOrderBtn">' + t("copyTextBtn") + '</button>' +
-    (order.sent ? '' : '<button class="cta green big" type="button" id="openBotBtn">' + t("openBotChat") + '</button>') +
+    (orderSent(order) ? '' : '<button class="cta green big" type="button" id="openBotBtn">' + t("openBotChat") + '</button>') +
     '<button class="cta big" type="button" id="shotOrderBtn">' + t("shotBtn") + '</button>' +
     '<p class="shot-hint">' + t("shotHint") + '</p>' +
     '</div>';
@@ -3353,8 +3416,8 @@ function fallbackCopy(text) {
   document.body.removeChild(ta);
   return ok;
 }
-function orderStatusLabel(o) { return o.sent ? t("statusSent") : t("statusCopy"); }
-function orderStatusClass(o) { return o.sent ? "st-sent" : "st-copy"; }
+function orderStatusLabel(o) { return orderSent(o) ? t("statusSent") : t("statusCopy"); }
+function orderStatusClass(o) { return orderSent(o) ? "st-sent" : "st-copy"; }
 /* v19.1 ORDER-SEND FIX (owner 14:27): openBotChat ONLY opens the
    bot chat. Copying is a separate explicit button (copyText, honest
    success/failure). Inside Telegram, openTelegramLink opens the chat
@@ -3387,7 +3450,7 @@ function renderOrderList() {
     /* v15: an unsent order gets the prominent send button under its
        card (the old pink badge is now a status label + this button);
        a sent order keeps the single-button card as before. */
-    html += o.sent ? card :
+    html += orderSent(o) ? card :
       '<div class="order-card-wrap">' + card +
       '<button class="cta green send-order-btn" type="button" data-send-order="' + o.id + '">' + t("sendOrderBtn") + '</button></div>';
   });
@@ -3409,7 +3472,7 @@ function openOrder(id) {
   if (!o) return;
   currentOrderId = id;
   var steps = [
-    { t: o.sent ? t("tl1T") : t("tl1PendT"), d: o.sent ? t("tl1D") : t("tl1PendD"), state: o.sent ? "done" : "now" },
+    { t: orderSent(o) ? t("tl1T") : t("tl1PendT"), d: orderSent(o) ? t("tl1D") : t("tl1PendD"), state: orderSent(o) ? "done" : "now" },
     { t: t("tl2T"), d: t("tl2D"), state: o.sent ? "now" : "" },
     { t: t("tl3T"), d: t("tl3D"), state: "" },
     { t: t("tl4T"), d: t("tl4D"), state: "" }
@@ -3940,13 +4003,23 @@ var lastShopText = "";
           ];
           if (shopLocation) shopLines.push(t("regLblPin") + shopLocation.lat + ", " + shopLocation.lon);
           if (manualAddress) shopLines.push(t("regLblAddr") + manualAddress);
-          if (mapsUrl) shopLines.push(t("regLblMap") + mapsUrl);
+          /* v19.4: never print a percent-encoded URL in the human
+             text (same cause as the order receipt) — a typed address
+             already has its own plain line above; a pin link or a
+             clean pasted link prints as-is, an encoded one decoded. */
+          if (mapsUrl) {
+            if (mapsUrl.indexOf("%") === -1) shopLines.push(t("regLblMap") + mapsUrl);
+            else { try { shopLines.push(t("regLblMap") + decodeURIComponent(mapsUrl)); } catch (e) {} }
+          }
           lastShopText = shopLines.join("\n");
           /* v19 submit: sendData whenever it exists — NOT gated on
              initDataUnsafe.receiver. The photo FILE cannot go through
-             sendData (4KB limit): only photo_pending + photo_name. */
+             sendData (4KB limit): only photo_pending + photo_name.
+             v19.4: the real-launch guard (tgCanSend) — outside
+             Telegram the official script's sendData silently does
+             nothing, and a false sent here also DELETED the draft. */
           var sent = false;
-          if (tg && typeof tg.sendData === "function") {
+          if (tgCanSend()) {
             try {
               tg.sendData(JSON.stringify({
                 type: "shop_register", form_version: "short-v19",
