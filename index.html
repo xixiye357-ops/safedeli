@@ -1,4 +1,18 @@
 <!DOCTYPE html>
+<!--
+  Safe Deli Mini App v19.19 (2026-11-15 — HOME REORDER + BACK
+  BUTTONS, Min's approval chain 15:16–15:25: the Home Favourites
+  section is GONE (favourites live in their own view, the tile);
+  the dish grid comes FIRST, Popular Shops sits BELOW the dishes;
+  the Popular Shops title is tappable (goes to the Shops list);
+  a back button ("← ပြန်သွားပေးပါ") is on EVERY view that lacked
+  one — cats, shops, cart, receipt, orders, favs, newshops,
+  promos (detail views already had one). All 12 go to the
+  right place (list views -> Home). Built from the SHA-verified
+  home-reorder preview. th/en/zh labels are DRAFTS for Min to
+  check. Footer hours are rendered from t("hoursValue") split
+  on " · " (the preview hardcoded Burmese).
+  -->
 <html lang="my">
 <head>
 <meta charset="utf-8">
@@ -875,6 +889,7 @@ a{color:var(--green2)}
 .back-btn{display:inline-flex; align-items:center; gap:6px; font-weight:800; font-size:14px; color:var(--green2);
   margin-top:14px; padding:6px 0}
 .back-btn svg{width:17px; height:17px; stroke:var(--green2)}
+#popularShopsTitle{cursor:pointer}
 .detail-cover{height:210px; border-radius:28px; position:relative; margin-top:10px; overflow:hidden}
 .detail-cover img{width:100%; height:100%; object-fit:cover; display:block}
 .detail-cover .fav-btn{top:12px; right:12px}
@@ -1413,19 +1428,14 @@ a{color:var(--green2)}
       </div>
 
       <div class="section">
-        <div class="sec-head"><h2 class="ic-flame" data-i18n="secPopularShops">လူကြိုက်များတဲ့ ဆိုင်များ</h2><button class="link-more" id="seeAllShops" type="button" data-i18n="seeAll">အားလုံးကြည့်ရန် →</button></div>
-        <div class="shop-scroll" id="shopScroll"></div>
-      </div>
-
-      <div class="section" id="favSection" hidden>
-        <div class="sec-head"><h2 data-i18n="secFavs">အကြိုက်ဆုံးများ</h2></div>
-        <div id="favList" class="dish-grid"></div>
-      </div>
-
-      <div class="section">
         <div class="sec-head"><h2 class="ic-star" data-i18n="secRecommended">သင့်အတွက် အကြံပြုချက်များ</h2><button class="link-more" id="refreshDishes" type="button"><span aria-hidden="true">↻</span> <span data-i18n="refreshBtn">ပြန်စီပါ</span></button></div>
         <div class="filter-bar hidden" id="filterBar"><span id="filterText"></span><button id="filterClear" type="button"><span data-i18n="filterClear">ရှင်းလင်းပေးပါ</span> ✕</button></div>
         <div id="dishGrid" class="dish-grid" style="margin-top:12px"></div>
+      </div>
+
+      <div class="section">
+        <div class="sec-head"><h2 class="ic-flame" id="popularShopsTitle" role="button" tabindex="0" data-i18n="secPopularShops">လူကြိုက်များတဲ့ ဆိုင်များ</h2><button class="link-more" id="seeAllShops" type="button" data-i18n="seeAll">အားလုံးကြည့်ရန် →</button></div>
+        <div class="shop-scroll" id="shopScroll"></div>
       </div>
 
       <!-- v19 (owner 2026-11-12 13:14): 3-step card moved below the dishes — food first; kept for first-time customers, content unchanged -->
@@ -1462,6 +1472,7 @@ a{color:var(--green2)}
 
   <!-- ================= CATEGORIES ================= -->
   <section class="view" id="view-cats">
+    <button class="back-btn" id="catsBack" type="button" data-i18n="backBtn">← ပြန်သွားပေးပါ</button>
     <div class="section">
       <div class="sec-head"><h2 data-i18n="secCats">အမျိုးအစားများ</h2></div>
       <p class="sec-sub" data-i18n="catsSub">အမျိုးအစား တစ်ခုကို နှိပ်လိုက်ရင် အဲဒီအမျိုးအစားထဲက စားစရာတွေ ပေါ်လာပါမယ်ရှင့်။</p>
@@ -1471,6 +1482,7 @@ a{color:var(--green2)}
 
   <!-- ================= SHOPS ================= -->
   <section class="view" id="view-shops">
+    <button class="back-btn" id="shopsBack" type="button" data-i18n="backBtn">← ပြန်သွားပေးပါ</button>
     <div class="section">
       <div class="sec-head"><h2 data-i18n="secShops">ဆိုင်ခန်းများ</h2></div>
       <p class="sec-sub" data-i18n="shopsSub">တာချီလိတ်မြို့တွင်းက ဆိုင်ခန်းများပါရှင့်။</p>
@@ -1494,6 +1506,7 @@ a{color:var(--green2)}
 
   <!-- ================= CART ================= -->
   <section class="view" id="view-cart">
+    <button class="back-btn" id="cartBack" type="button" data-i18n="backBtn">← ပြန်သွားပေးပါ</button>
     <div class="section">
       <div class="sec-head"><h2 data-i18n="cartTitle">အော်ဒါခြင်းတောင်း</h2></div>
       
@@ -1541,6 +1554,7 @@ a{color:var(--green2)}
 
   <!-- ================= RECEIPT ================= -->
   <section class="view" id="view-receipt">
+    <button class="back-btn" id="receiptBack" type="button" data-i18n="backBtn">← ပြန်သွားပေးပါ</button>
     <div class="success-hero">
       <div class="ok-ring" id="receiptOkIcon"></div>
       <h2 id="receiptTitle">အော်ဒါ စာသား သိမ်းထားပါပြီရှင့်</h2>
@@ -1553,6 +1567,7 @@ a{color:var(--green2)}
 
   <!-- ================= ORDERS ================= -->
   <section class="view" id="view-orders">
+    <button class="back-btn" id="ordersBack" type="button" data-i18n="backBtn">← ပြန်သွားပေးပါ</button>
     <div class="section">
       <div class="sec-head"><h2 data-i18n="ordersTitle">အော်ဒါများ</h2></div>
       <p class="sec-sub" data-i18n="ordersSub">ဒီဖုန်းကနေ တင်ထားတဲ့ အော်ဒါများပါရှင့်။ Safe Deli ဆီ ပို့ဖို့ အော်ဒါကို နှိပ်ပြီး ခလုတ်ကို နှိပ်ပေးပါနော်။</p>
@@ -1562,6 +1577,7 @@ a{color:var(--green2)}
 
   <!-- ================= FAVOURITES (preview: new tiles) ================= -->
   <section class="view" id="view-favs">
+    <button class="back-btn" id="favsBack" type="button" data-i18n="backBtn">← ပြန်သွားပေးပါ</button>
     <div class="section">
       <div class="sec-head"><h2 data-i18n="favTitle">အကြိုက်ဆုံး ဟင်းများ</h2></div>
       <p class="sec-sub" data-i18n="favSub">နှလုံးသား နှိပ်ထားတဲ့ ဟင်းများပါရှင့်။</p>
@@ -1571,6 +1587,7 @@ a{color:var(--green2)}
 
   <!-- ================= NEW SHOPS (preview: new tiles) ================= -->
   <section class="view" id="view-newshops">
+    <button class="back-btn" id="newShopsBack" type="button" data-i18n="backBtn">← ပြန်သွားပေးပါ</button>
     <div class="section">
       <div class="sec-head"><h2 data-i18n="newShopsTitle">ဆိုင်အသစ်များ</h2></div>
       <p class="sec-sub" data-i18n="newShopsSub">Safe Deli မှာ အသစ်ရောက်တဲ့ ဆိုင်များပါရှင့်။</p>
@@ -1583,6 +1600,7 @@ a{color:var(--green2)}
        so it felt un-tappable. Now it opens its own page, like the
        other new tiles. The Home promo banner is tappable too. ) ===== -->
   <section class="view" id="view-promos">
+    <button class="back-btn" id="promosBack" type="button" data-i18n="backBtn">← ပြန်သွားပေးပါ</button>
     <div class="section">
       <div class="sec-head"><h2 data-i18n="promosTitle">ပရိုမိုးရှင်းများ</h2></div>
       <p class="sec-sub" data-i18n="promosSub">Safe Deli ရဲ့ ပရိုမိုးရှင်းများပါရှင့်။</p>
@@ -3310,13 +3328,11 @@ function renderDishGrid() {
   bindDishCardEvents(grid);
 }
 function renderFavSection() {
-  var sec = $("favSection");
-  var list = visibleDishes().filter(function (d) { return isFav(d.id); });
-  if (!list.length) { sec.hidden = true; return; }
-  sec.hidden = false;
-  var el = $("favList");
-  el.innerHTML = list.map(dishCardHTML).join("");
-  bindDishCardEvents(el);
+  /* v19.19 HOME CLEANUP (owner 2026-11-15 15:16): the Home Favourites
+     section is GONE — favourites live in their own view (view-favs,
+     the tile). Kept as a no-op so the existing callers (cart/fav
+     toggles, renderHome) need no change. */
+  return;
 }
 function shopCardHTML(s, compact) {
   /* v13 GRABFOOD: shop ROW — big photo left, open/closed badge on the
@@ -4786,6 +4802,9 @@ function init() {
      both buttons are gone from the markup; guard so init never throws. */
   var _sac = $("seeAllCats"); if (_sac) _sac.addEventListener("click", function () { go("cats"); });
   $("seeAllShops").addEventListener("click", function () { go("shops"); });
+  /* v19.19: the Popular Shops title itself goes to the Shops list. */
+  $("popularShopsTitle").addEventListener("click", function () { go("shops"); });
+  $("popularShopsTitle").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go("shops"); } });
   var _sad = $("seeAllDishes"); if (_sad) _sad.addEventListener("click", function () {
     setCategory("all");
     var g = $("dishGrid");
@@ -4810,6 +4829,15 @@ function init() {
   $("receiptHomeBtn").addEventListener("click", function () { go("home"); });
   $("receiptOrdersBtn").addEventListener("click", function () { go("orders"); });
   $("orderBack").addEventListener("click", function () { go("orders"); });
+  /* v19.19: back button on every list view — all go Home. */
+  $("catsBack").addEventListener("click", function () { go("home"); });
+  $("shopsBack").addEventListener("click", function () { go("home"); });
+  $("cartBack").addEventListener("click", function () { go("home"); });
+  $("receiptBack").addEventListener("click", function () { go("home"); });
+  $("ordersBack").addEventListener("click", function () { go("home"); });
+  $("favsBack").addEventListener("click", function () { go("home"); });
+  $("newShopsBack").addEventListener("click", function () { go("home"); });
+  $("promosBack").addEventListener("click", function () { go("home"); });
   $("modalBack").addEventListener("click", function (e) { if (e.target === $("modalBack")) closeModal(); });
 
   renderNav();
