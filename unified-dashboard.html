@@ -1,0 +1,2356 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Safe Deli — စီမံခန့်ခွဲမှု Dashboard</title>
+<style>
+:root{
+  --purple:#5422c8; --violet:#7C3AED; --violet-dark:#3B1A7A; --pink:#EC4899;
+  --gold:#D4AF37; --bg:#F4F2FB; --card:#fff; --ink:#1E1B2E; --muted:#6B6580;
+  --line:#E7E2F5; --green:#16A34A; --green-bg:#DCFCE7; --amber:#D97706; --amber-bg:#FEF3C7;
+  --red:#DC2626; --red-bg:#FEE2E2; --blue:#2563EB; --blue-bg:#DBEAFE;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Myanmar",sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+a{color:var(--purple)}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:15px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--violet);outline-offset:0;border-color:var(--violet)}
+h1{font-size:22px;margin:0 0 4px} h2{font-size:17px;margin:0 0 10px} h3{font-size:15px;margin:0 0 8px}
+.muted{color:var(--muted);font-size:13px} .small{font-size:12.5px}
+.hidden{display:none!important}
+/* ---------- login ---------- */
+#loginWrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#3B1A7A,#5422c8 55%,#7C3AED)}
+.login-card{background:#fff;border-radius:18px;padding:28px 26px;width:100%;max-width:380px;box-shadow:0 18px 50px rgba(0,0,0,.35);text-align:center}
+.login-card img.logo{width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid var(--line)}
+.login-card h1{margin:12px 0 2px}
+.login-card form{text-align:left;margin-top:18px}
+.login-card label{display:block;font-size:13px;color:var(--muted);margin:12px 0 5px}
+.login-card .err{color:var(--red);font-size:13px;margin-top:10px;min-height:18px}
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:44px}
+.pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;font-size:19px;line-height:1;cursor:pointer;padding:6px;color:var(--muted);width:auto}
+.pw-eye:focus{outline:2px solid var(--violet);border-radius:6px}
+/* ---------- shop form: AM/PM time picker (no typing) ---------- */
+.time-picker{display:flex;gap:6px}
+.time-picker select{flex:1;min-width:0;padding:9px 4px;text-align:center}
+/* ---------- shop form: media frames (2026-11-13, Min: use the CURRENT
+   frames — they are beautiful, do not build different/new ones).
+   This is the app's gold photo frame, copied verbatim (v15 frames +
+   v19 ring fix): a 3px dark-bronze ring that is always there, plus a
+   bright gold arc that travels around it (4s). The uploaded picture
+   sits inside it, so the preview looks exactly like the app's
+   shop-photo and Menu dish cards. ---------- */
+.frame-gold{position:relative; overflow:hidden; padding:3px; background:linear-gradient(135deg,#8A6508,#6B4E00); box-shadow:0 0 10px rgba(245,197,24,.45)}
+.frame-gold::before{content:""; position:absolute; inset:-50%; animation:frame-spin 4s linear infinite; pointer-events:none; background:conic-gradient(from 0deg, transparent 0deg, transparent 240deg, #F5C518 270deg, #FFE97A 300deg, #FFFFFF 325deg, #FFF3B0 345deg, #F5C518 360deg)}
+@keyframes frame-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.frame-gold::before{animation:none}}
+.frame-gold img,.frame-gold video{position:relative; z-index:1; width:100%; height:100%; object-fit:cover; display:block}
+.frame-gold video{background:#000}
+/* Preview sizes: one big frame for a single photo/video/menu (full
+   width on a phone, 16:9), two-per-row frames for photo lists. */
+.thumb-single .frame-gold{width:100%; max-width:340px; aspect-ratio:16/9; border-radius:12px; margin-top:8px}
+.thumb-single .frame-gold img,.thumb-single .frame-gold video{border-radius:9px}
+.thumb-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px}
+.thumb-grid .frame-gold{aspect-ratio:4/3; border-radius:10px}
+.thumb-grid .frame-gold img,.thumb-grid .frame-gold video{border-radius:8px}
+.thumb:empty{display:none}
+/* Gold NEW badge on the menu frame (Min 2026-11-13: NEW in real gold
+   #A67C00, at the corner of the picture — never green). */
+.new-badge{position:absolute; top:6px; right:6px; z-index:2; background:#A67C00; color:#fff; font-size:11px; font-weight:800; padding:3px 8px; border-radius:999px; box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.up-row{margin-top:6px}
+.up-row input[type=file]{width:100%}
+.up-status{font-size:13px;color:var(--muted);margin-top:4px;min-height:16px}
+/* Dish photo frame in the Products list (same gold frame, smaller). */
+.prod-frame{width:120px; height:90px; border-radius:10px; flex:none}
+.prod-frame img{border-radius:8px}
+.form-sec{grid-column:1/-1;font-weight:700;margin-top:8px}
+.form-sec .muted{font-weight:400}
+.btn{display:inline-block;border:0;border-radius:10px;padding:10px 16px;font-size:15px;font-weight:600;background:var(--purple);color:#fff}
+.btn:hover{background:#4520a8} .btn:disabled{opacity:.55;cursor:default}
+.btn.ghost{background:#fff;color:var(--purple);border:1px solid var(--purple)}
+.btn.danger{background:var(--red)} .btn.green{background:var(--green)} .btn.sm{padding:6px 10px;font-size:13px;border-radius:8px}
+.btn.block{width:100%}
+/* ---------- app shell ---------- */
+#app{display:flex;min-height:100vh}
+aside.sidebar{width:248px;flex:0 0 248px;background:linear-gradient(180deg,#2E1065,#5422c8 70%,#6D28D9);color:#fff;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:10px;padding:16px 16px 12px}
+.brand img{width:46px;height:46px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.5);background:#fff}
+.brand .name{font-size:18px;font-weight:800;line-height:1.1}
+.brand .sub{font-size:11.5px;opacity:.85}
+nav.menu{flex:1;overflow-y:auto;padding:6px 10px 16px}
+nav.menu button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;border:0;color:#EDE9FE;padding:10px 12px;border-radius:10px;font-size:14.5px;margin-bottom:2px}
+nav.menu button:hover{background:rgba(255,255,255,.12)}
+nav.menu button.active{background:#fff;color:var(--violet-dark);font-weight:700}
+nav.menu button .ic{font-size:17px;flex:0 0 22px;text-align:center;line-height:1}
+nav.menu button .badge{margin-left:auto;background:var(--pink);color:#fff;border-radius:20px;padding:1px 8px;font-size:12px;font-weight:700}
+nav.menu .sect{font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.65;padding:14px 12px 5px}
+.side-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.2);font-size:12.5px;opacity:.9}
+main.main{flex:1;min-width:0;display:flex;flex-direction:column}
+header.topbar{background:#fff;border-bottom:1px solid var(--line);padding:10px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
+header.topbar .hamb{display:none;border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 11px;font-size:16px}
+header.topbar input.search{max-width:340px}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.role-pill{background:var(--violet);color:#fff;border-radius:20px;padding:5px 12px;font-size:13px;font-weight:700}
+#view{padding:20px;max-width:1280px;width:100%;margin:0 auto}
+.view-head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-bottom:16px}
+.view-head .spacer{flex:1}
+/* ---------- cards / KPI ---------- */
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(5,1fr)}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.kpi .lbl{font-size:13px;color:var(--muted)}
+.kpi .val{font-size:26px;font-weight:800;margin:4px 0 2px}
+.kpi .trend{font-size:12.5px;color:var(--green);font-weight:600}
+.kpi.grad{color:#fff;border:0}
+.kpi.grad .lbl,.kpi.grad .trend{color:rgba(255,255,255,.85)}
+.g1{background:linear-gradient(135deg,#4F46E5,#7C3AED)} .g2{background:linear-gradient(135deg,#0EA5E9,#6366F1)}
+.g3{background:linear-gradient(135deg,#F59E0B,#EC4899)} .g4{background:linear-gradient(135deg,#7C3AED,#DB2777)}
+.g5{background:linear-gradient(135deg,#059669,#0EA5E9)}
+.cards2{grid-template-columns:2fr 1fr} .cards3{grid-template-columns:1fr 1fr 1fr} .cards32{grid-template-columns:3fr 2fr}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.card h2{display:flex;align-items:center;gap:8px}
+.card h2 .more{margin-left:auto;font-size:13px;font-weight:600}
+/* ---------- tables ---------- */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:var(--muted);font-size:12.5px;padding:8px 8px;border-bottom:2px solid var(--line);white-space:nowrap}
+td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.tbl-wrap{overflow-x:auto}
+.pill{display:inline-block;border-radius:20px;padding:2px 10px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.pill.green{background:var(--green-bg);color:#166534} .pill.amber{background:var(--amber-bg);color:#92400E}
+.pill.red{background:var(--red-bg);color:#991B1B} .pill.blue{background:var(--blue-bg);color:#1E40AF}
+.pill.grey{background:#F1F5F9;color:#475569} .pill.purple{background:#EDE9FE;color:#5B21B6}
+.pill.new{background:#FEF3C7;color:#A67C00;border:1px solid #C9A227} /* NEW is always real gold #A67C00, never green (Min 2026-11-13) */
+.pill.test{background:#FEF9C3;color:#854D0E;border:1px dashed #EAB308}
+.empty{padding:26px;text-align:center;color:var(--muted)}
+/* ---------- chart / donut ---------- */
+.bars{display:flex;align-items:flex-end;gap:10px;height:150px;padding:8px 4px 0}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.bar{width:100%;max-width:44px;border-radius:6px 6px 0 0;background:linear-gradient(180deg,var(--violet),var(--purple));min-height:3px}
+.bar-col .d{font-size:11.5px;color:var(--muted)}
+.bar-col .v{font-size:11.5px;font-weight:700}
+.donut-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.donut{width:150px;height:150px;border-radius:50%;flex:0 0 150px;display:flex;align-items:center;justify-content:center;position:relative}
+.donut::after{content:"";position:absolute;inset:26px;background:#fff;border-radius:50%}
+.donut .center{position:relative;z-index:1;text-align:center}
+.donut .center b{font-size:22px;display:block}
+.donut .center span{font-size:12px;color:var(--muted)}
+.legend{list-style:none;margin:0;padding:0;font-size:13.5px}
+.legend li{display:flex;gap:8px;align-items:center;padding:4px 0}
+.legend .sw{width:12px;height:12px;border-radius:4px;flex:0 0 12px}
+.legend b{margin-left:auto;padding-left:14px}
+/* ---------- misc ---------- */
+.notice{border-radius:12px;padding:12px 14px;font-size:14px;margin-bottom:14px}
+.notice.amber{background:var(--amber-bg);color:#78350F;border:1px solid #FDE68A}
+.notice.blue{background:var(--blue-bg);color:#1E3A8A;border:1px solid #BFDBFE}
+.notice.green{background:var(--green-bg);color:#14532D;border:1px solid #BBF7D0}
+.checklist{list-style:none;margin:0;padding:0}
+.checklist li{padding:6px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.checklist li:last-child{border-bottom:0}
+.checklist .ok{color:var(--green);font-weight:700} .checklist .no{color:var(--red);font-weight:700}
+.row-flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row-flex>*{flex:1;min-width:160px}
+.tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.tabs button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:8px 16px;font-size:14px}
+.tabs button.active{background:var(--purple);color:#fff;border-color:var(--purple);font-weight:700}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;font-size:14px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;overflow-wrap:anywhere;word-break:break-word;min-width:0}
+.kv>*{min-width:0} .grid>*{min-width:0}
+#langSel,#loginLangSel{width:auto}
+/* ---------- dark theme (body.dark) ---------- */
+body.dark{--bg:#171423;--card:#241F33;--ink:#F1EDFB;--muted:#A89FC4;--line:#3A334F;--green-bg:#14532D;--amber-bg:#451A03;--red-bg:#450A0A;--blue-bg:#172554}
+body.dark input,body.dark select,body.dark textarea{background:#2E2844;color:var(--ink);border-color:var(--line)}
+body.dark header.topbar{background:#241F33}
+body.dark .tabs button{background:#2E2844;color:var(--ink);border-color:var(--line)}
+body.dark .btn.ghost{background:#241F33;color:#D4AF37;border-color:#A67C00}
+body.dark aside.sidebar{background:linear-gradient(180deg,#1E0B45,#3B1A7A 70%,#5422c8)}
+body.dark .donut::after{background:var(--card)}
+body.dark .notice.amber{background:#451A03;color:#FDE68A;border-color:#92400E}
+body.dark .notice.blue{background:#172554;color:#BFDBFE;border-color:#1E40AF}
+body.dark .notice.green{background:#14532D;color:#BBF7D0;border-color:#166534}
+body.dark .login-card{background:#241F33;color:var(--ink)}
+body.dark .login-card label{color:var(--muted)}
+body.dark .pill.green{background:var(--green-bg);color:#BBF7D0}
+body.dark .pill.amber{background:var(--amber-bg);color:#FDE68A}
+body.dark .pill.red{background:var(--red-bg);color:#FECACA}
+body.dark .pill.blue{background:var(--blue-bg);color:#BFDBFE}
+body.dark .pill.grey{background:#3A334F;color:#D6D3E0}
+body.dark .pill.purple{background:#3B1A7A;color:#DDD6FE}
+textarea{resize:vertical;min-height:80px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-grid .full{grid-column:1/-1}
+label.flabel{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
+.err-text{color:var(--red);font-size:13.5px;margin-top:8px;min-height:18px}
+.ok-text{color:var(--green);font-size:13.5px;margin-top:8px;min-height:18px}
+.pager{display:flex;gap:10px;align-items:center;margin-top:12px;font-size:13.5px}
+/* ---------- responsive: preview breakpoints 760 / 980 / 1200 ---------- */
+@media (max-width:1200px){ .kpis{grid-template-columns:repeat(3,1fr)} .cards3{grid-template-columns:1fr 1fr} }
+@media (max-width:980px){
+  .kpis{grid-template-columns:repeat(2,1fr)} .cards2,.cards32,.cards3{grid-template-columns:1fr}
+  aside.sidebar{position:fixed;left:0;top:0;bottom:0;z-index:50;transform:translateX(-105%);transition:transform .2s;box-shadow:0 0 40px rgba(0,0,0,.3)}
+  aside.sidebar.open{transform:none}
+  header.topbar .hamb{display:inline-block}
+}
+@media (max-width:760px){
+  #view{padding:14px} .kpis{grid-template-columns:1fr 1fr} .form-grid{grid-template-columns:1fr}
+  .kpi .val{font-size:21px} header.topbar input.search{display:none} #apiState{display:none}
+  /* Shops as stacked cards on phones (2026-11-13): the wide table
+     squeezed the address into a narrow edge column. Each shop becomes
+     a full-width card — name, address, phone, GPS, status and all
+     buttons visible with no horizontal scrolling. */
+  .shop-list .tbl-wrap{overflow:visible}
+  .shop-list table,.shop-list tbody,.shop-list tr,.shop-list td{display:block;width:100%}
+  .shop-list thead{display:none}
+  .shop-list tr{background:var(--bg);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;padding:10px 12px}
+  .shop-list td{border:0;padding:5px 0}
+  .shop-list td[data-lbl]::before{content:attr(data-lbl);display:block;font-size:12px;color:var(--muted);margin-bottom:2px}
+  .shop-list td[data-lbl=""]::before{display:none}
+  .shop-list td .btn{margin:2px 4px 2px 0}
+  /* Products as stacked cards on phones too (same pattern): one
+     dish per card — photo frame, name, price, order buttons. */
+  .prod-list .tbl-wrap{overflow:visible}
+  .prod-list table,.prod-list tbody,.prod-list tr,.prod-list td{display:block;width:100%}
+  .prod-list thead{display:none}
+  .prod-list tr{background:var(--bg);border:1px solid var(--line);border-radius:12px;margin-bottom:12px;padding:10px 12px}
+  .prod-list td{border:0;padding:5px 0}
+  .prod-list td[data-lbl]::before{content:attr(data-lbl);display:block;font-size:12px;color:var(--muted);margin-bottom:2px}
+  .prod-list td[data-lbl=""]::before{display:none}
+  .prod-list td .btn{margin:2px 4px 2px 0}
+}
+</style>
+</head>
+<body>
+<script>try{var _t=localStorage.getItem("safedeli_dash_theme");if(_t==="dark")document.body.classList.add("dark");var _l=localStorage.getItem("safedeli_dash_lang");if(_l)document.documentElement.lang=_l;}catch(e){}</script>
+<div id="loginWrap">
+  <div class="login-card">
+    <img class="logo" src="/assets/safe-deli-logo.jpg" alt="Safe Deli logo" onerror="this.style.display='none'">
+    <h1>Safe Deli</h1>
+    <div class="muted" data-i18n="login.subtitle">စီမံခန့်ခွဲမှု Dashboard — Management System</div>
+    <div style="margin-top:10px"><select id="loginLangSel" aria-label="Language" style="width:auto"><option value="my">မြန်မာ</option><option value="th">ไทย</option><option value="en">English</option><option value="zh">中文</option></select></div>
+    <form id="loginForm">
+      <label for="username" data-i18n="login.user">အသုံးပြုသူအမည် (Username)</label>
+      <input id="username" name="username" autocomplete="username" required>
+      <label for="password" data-i18n="login.pass">စကားဝှက် (Password)</label>
+      <div class="pw-wrap"><input id="password" name="password" type="password" autocomplete="current-password" required><button type="button" class="pw-eye" id="pwEye" aria-label="Show password">👁️</button></div>
+      <div style="margin-top:18px"><button class="btn block" type="submit" id="loginBtn" data-i18n="login.btn">ဝင်ရောက်မည် — Log in</button></div>
+      <div class="err" id="loginErr"></div>
+    </form>
+    <div class="muted small" style="margin-top:10px" data-i18n="login.note">Session token ကို browser memory ထဲမှာသာ သိမ်းထားပါတယ်။<br>စာမျက်နှာ ပိတ်လိုက်ရင် အလိုအလျောက် ထွက်သွားပါမယ်။</div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <img src="/assets/safe-deli-logo.jpg" alt="Safe Deli logo" onerror="this.style.display='none'">
+      <div><div class="name">Safe Deli</div><div class="sub">Management System<br>တာချီလိတ် • Tachileik</div></div>
+    </div>
+    <nav class="menu" id="navMenu"></nav>
+    <div class="side-foot" id="sideFoot"></div>
+  </aside>
+  <main class="main">
+    <header class="topbar">
+      <button class="hamb" id="hamb" aria-label="Menu">≡</button>
+      <input class="search" id="topSearch" type="search" data-i18n-ph="top.searchPh" placeholder="ကျာမည်… (အော်ဒာ် / ဆိုင် / ဖောက်စူသ်)">
+      <div class="top-right">
+        <span class="muted small" id="apiState">API…</span>
+        <span class="role-pill" id="rolePill"></span>
+        <span id="userName" style="font-weight:600"></span>
+        <select id="langSel" aria-label="Language" style="width:auto;padding:6px 8px"><option value="my">မြန်မာ</option><option value="th">ไทย</option><option value="en">English</option><option value="zh">中文</option></select>
+        <button class="btn ghost sm" id="themeBtn" type="button"></button>
+        <button class="btn ghost sm" id="logoutBtn" data-i18n="top.logout">ထွက်မည်</button>
+      </div>
+    </header>
+    <div id="view"></div>
+  </main>
+</div>
+<script>
+"use strict";
+/* Safe Deli Unified Dashboard — single file, no demo data.
+   Every number, name and row comes from the API. Empty states are
+   shown honestly when the API returns nothing. Token lives in memory
+   only (never localStorage / cookies). */
+let TOKEN = null, ME = null, CURRENT_VIEW = null, LAST_TABLE_ROWS = [];
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtNum = n => (n == null || isNaN(n)) ? "—" : Number(n).toLocaleString("en-US");
+const fmtMoney = (n, cur) => {
+  if (n == null || isNaN(n)) return "—";
+  const v = Number(n).toLocaleString("en-US", {maximumFractionDigits: 2});
+  return cur === "MMK" ? v + " Ks" : "฿" + v;
+};
+const fmtDate = s => {
+  if (!s) return "—";
+  const d = new Date(s);
+  return isNaN(d) ? esc(s) : d.toLocaleString("en-GB", {day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit"});
+};
+const statusPill = st => {
+  const m = {pending:["grey","st.pending"], new:["blue","st.new"], confirmed:["blue","st.confirmed"],
+    shop_confirmed:["green","st.shop_confirmed"], shop_rejected:["red","st.shop_rejected"],
+    preparing:["amber","st.preparing"], delivering:["blue","st.delivering"], delivered:["green","st.delivered"],
+    cancelled:["red","st.cancelled"], failed:["red","st.failed"], completed:["green","st.completed"],
+    processing:["amber","st.processing"], shipped:["blue","st.shipped"], active:["green","st.active"],
+    approved:["green","st.approved"], suspended:["red","st.suspended"], rejected:["red","st.rejected"],
+    verified:["green","st.verified"], assigned:["blue","st.assigned"], accepted:["blue","st.accepted"],
+    picked_up:["blue","st.picked_up"], created:["grey","st.created"]};
+  const p = m[st] || ["grey", st || "—"];
+  return `<span class="pill ${p[0]}">${esc(m[st] ? t(p[1]) : p[1])}</span>`;
+};
+async function api(path, opts) {
+  opts = opts || {};
+  const res = await fetch(path, {
+    method: opts.method || "GET",
+    headers: Object.assign({"Accept": "application/json"},
+      opts.body ? {"Content-Type": "application/json"} : {},
+      TOKEN ? {"Authorization": "Bearer " + TOKEN} : {}),
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const ct = res.headers.get("content-type") || "";
+  const data = ct.includes("application/json") ? await res.json().catch(() => ({})) : {};
+  if (!res.ok) {
+    const err = new Error((data && data.error) || ("HTTP " + res.status));
+    err.status = res.status; throw err;
+  }
+  return data;
+}
+async function apiCsv(path, filename) {
+  const res = await fetch(path, {headers: TOKEN ? {"Authorization": "Bearer " + TOKEN} : {}});
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function donut(parts, total, centerTop, centerSub) {
+  // parts: [{label, value, color}] — pure CSS conic-gradient donut.
+  if (!total) return `<div class="donut-wrap"><div class="donut" style="background:#EDE9FE"><div class="center"><b>0</b><span>${esc(centerSub || "")}</span></div></div><ul class="legend"><li>${esc(t("common.empty"))}</li></ul></div>`;
+  let acc = 0; const stops = parts.map(p => {
+    const from = acc / total * 360, to = (acc + p.value) / total * 360; acc += p.value;
+    return `${p.color} ${from}deg ${to}deg`;
+  }).join(", ");
+  const rows = parts.map(p => `<li><span class="sw" style="background:${p.color}"></span>${esc(p.label)}<b>${fmtNum(p.value)} (${Math.round(p.value / total * 100)}%)</b></li>`).join("");
+  return `<div class="donut-wrap"><div class="donut" style="background:conic-gradient(${stops})"><div class="center"><b>${esc(centerTop)}</b><span>${esc(centerSub || "")}</span></div></div><ul class="legend">${rows}</ul></div>`;
+}
+function barchart(chart) {
+  if (!chart || !chart.length) return `<div class="empty">${esc(t("common.empty"))}</div>`;
+  const max = Math.max.apply(null, chart.map(c => c.income || 0).concat([1]));
+  const cols = chart.map(c => {
+    const h = Math.max(2, Math.round((c.income || 0) / max * 110));
+    const d = (c.date || "").slice(5);
+    return `<div class="bar-col" title="${esc(c.date || "")} — ฿${fmtNum(c.income || 0)} • ${esc(t("common.ordersN").replace("{n}", String(c.orders || 0)))}"><div class="v">${fmtNum(c.income || 0)}</div><div class="bar" style="height:${h}px"></div><div class="d">${esc(d)}</div></div>`;
+  }).join("");
+  return `<div class="bars">${cols}</div>`;
+}
+function tableOrEmpty(head, rowsHtml) {
+  if (!rowsHtml) return `<div class="empty">${esc(t("common.empty"))}</div>`;
+  return `<div class="tbl-wrap"><table><thead><tr>${head}</tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+}
+function showErr(el, err) { if (el) el.textContent = t("common.err") + " — " + (err.message || err); }
+
+/* ---------- language + theme + per-user preferences (localStorage only) ----------
+   Language, theme, notifications, auto-refresh and page size are PER-USER
+   preferences saved on this device only (localStorage keys safedeli_dash_*).
+   They are NOT server state and never touch the token (token stays in memory). */
+const I18N = {
+my: {
+"nav.overview": "ခြုံငုံ", "nav.orders": "အော်ဒါများ",
+"nav.reviews": "သုံးသပ်ချက်များ", "nav.shops": "ဆိုင်များ", "nav.products": "ပစ္စည်းများ",
+"nav.customers": "ဖောက်သည်များ", "nav.delivery": "ပို့ဆောင်မှု", "nav.riders": "ပို့ဆောင်သူများ",
+"nav.finance": "ငွေစာရင်း", "nav.media": "မီဒီယာ", "nav.settings": "ဆက်တင်",
+"nav.users": "အက်ဒမင်များ", "nav.audit": "မှတ်တမ်း", "nav.moverview": "ကျွန်တော့်ဆိုင်",
+"nav.morders": "ကျွန်တော့်အော်ဒါများ", "nav.mproducts": "ကျွန်တော့်ပစ္စည်းများ",
+"nav.payouts": "ငွေထုတ်ယူမှု", "nav.prefs": "ကိုယ်ပိုင် ဆက်တင်", "nav.account": "အကောင့်",
+"top.searchPh": "ရှာမည်… (အော်ဒါ / ဆိုင် / ဖောက်သည်)", "top.logout": "ထွက်မည်",
+"top.apiOk": "API: အလုပ်လုပ်နေပါတယ်", "top.apiFail": "API: စစ်ဆေးမရပါ",
+"top.themeToDark": "အမှောင် သို့ ပြောင်းမည်", "top.themeToLight": "အလင်း သို့ ပြောင်းမည်",
+"top.lang": "ဘာသာစကား",
+"login.subtitle": "စီမံခန့်ခွဲမှု Dashboard — Management System",
+"login.errToken": "Token မရပါ", "login.err401": "Username / Password မှားနေပါတယ်ရှင့်။",
+"meta.title": "Safe Deli — စီမံခန့်ခွဲမှု Dashboard",
+"login.user": "အသုံးပြုသူအမည် (Username)", "login.pass": "စကားဝှက် (Password)",
+"login.btn": "ဝင်ရောက်မည် — Log in",
+"login.note": "Session token ကို browser memory ထဲမှာသာ သိမ်းထားပါတယ်။ စာမျက်နှာ ပိတ်လိုက်ရင် အလိုအလျောက် ထွက်သွားပါမယ်။",
+"common.save": "သိမ်းမည်", "common.cancel": "မလုပ်တော့ပါ", "common.loading": "ဖွင့်နေပါတယ်…",
+"common.errTitle": "ဖွင့်၍ မရပါ", "common.empty": "ဒေတာ မရှိသေးပါ", "common.saved": "သိမ်းပြီးပါပြီ။",
+"v.overview.t": "ခြုံငုံ",
+"v.overview.s": "မင်္ဂလာပါရှင့်။ Safe Deli ရဲ့ ဒီနေ့ အခြေအနေကို ဒီမှာ ကြည့်နိုင်ပါတယ်ရှင့်။",
+"v.orders.t": "အော်ဒါများ",
+"v.orders.s": "ဖောက်သည်တွေရဲ့ အော်ဒါများ။",
+"v.reviews.t": "သုံးသပ်ချက်များ",
+"v.reviews.s": "ဖောက်သည်တွေရဲ့ သုံးသပ်ချက်များ။ အတည်ပြုပြီးမှသာ အက်ပ်မှာ ပြပါမယ် — အတုမရှိပါ။",
+"v.shops.t": "ဆိုင်များ",
+"v.shops.s": "အတည်ပြုပြီး ဆိုင်များ။ NEW တံဆိပ်က အတည်ပြုပြီး ၇ ရက်အတွင်း ဆိုင်များကို ပြပါတယ်။",
+"v.products.t": "ပစ္စည်းများ",
+"v.products.s": "ဆိုင်တိုင်းရဲ့ ပစ္စည်းများနှင့် ဈေးနှုန်းများ။",
+"v.customers.t": "ဖောက်သည်များ",
+"v.customers.s": "အော်ဒါများမှ ဆွဲထုတ်ထားသော ဖောက်သည်စာရင်း။ Support / Operations အခန်းကဏ္ဍကို ဖုန်းနံပါတ် အပြည့်အစုံ မပြပါ။",
+"v.delivery.t": "ပို့ဆောင်မှု",
+"v.delivery.s": "ပို့ဆောင်မှုအားလုံးနှင့် လမ်းကြောင်းများ။ Live map မရှိပါ — လမ်းကြောင်း link နှင့် နောက်ဆုံး တည်နေရာသာ ပြပါတယ်။",
+"v.riders.t": "ပို့ဆောင်သူများ",
+"v.riders.s": "ပို့ဆောင်သူစာရင်း။ အနီးဆုံး ပို့ဆောင်သူကို အရင်ဆုံး တာဝန်ပေးပါတယ်။",
+"v.finance.t": "ငွေစာရင်း",
+"v.finance.s": "ငွေဝင်/ငွေထွက် စာရင်း။ စာရင်းတစ်ကြောင်းချင်းစီမှာ သူ့ဆိုင်ရဲ့ ငွေကြေး (ဘတ်/Ks) ကို ပြပါတယ်။",
+"v.media.t": "မီဒီယာ",
+"v.media.s": "Banner, hero ပုံ, promotion နေရာများနှင့် featured ဆိုင်များ။",
+"v.settings.t": "ဆက်တင်",
+"v.settings.s": "ဆိုင် ဖွင့်/ပိတ်ချိန်၊ ဆိုင်အမျိုးအစားများ၊ banner နှင့် အခြား ဆက်တင်များ။",
+"v.users.t": "အက်ဒမင်များ",
+"v.users.s": "အခန်းကဏ္ဍအလိုက် အကောင့်များ။ Merchant အကောင့်ကို ဆိုင်တစ်ဆိုင်နဲ့ ချိတ်ရပါမယ်။",
+"v.audit.t": "မှတ်တမ်း",
+"v.audit.s": "ဘယ်သူက ဘာကို ဘယ်တုန်းက ပြင်/လုပ်ခဲ့လဲ။ မှတ်တမ်းကို ပြင်/ဖျက်၍ မရပါ။",
+"v.moverview.t": "ကျွန်တော့်ဆိုင်",
+"v.moverview.s": "မင်္ဂလာပါရှင့်။ ဆိုင်ရဲ့ အခြေအနေပါ။",
+"v.morders.t": "ကျွန်တော့်အော်ဒါများ",
+"v.morders.s": "ကျွန်တော့်ဆိုင်ရဲ့ အော်ဒါများသာ ပြပါတယ်။",
+"v.mproducts.t": "ကျွန်တော့်ပစ္စည်းများ",
+"v.mproducts.s": "ကျွန်တော့်ဆိုင်ရဲ့ ပစ္စည်းများသာ ပြပါတယ်။ ဈေးနှင့် ရနိုင်/မရနိုင် ပြင်နိုင်ပါတယ်။",
+"v.payouts.t": "ငွေထုတ်ယူမှု",
+"v.payouts.s": "ဆိုင်ကို ပေးချေပြီးသော ငွေများနှင့် ပေးချေရန် ကျန်သော အော်ဒါများ။",
+"v.prefs.t": "ကိုယ်ပိုင် ဆက်တင်",
+"v.prefs.s": "ဘာသာစကား၊ အလင်း/အမှောင်၊ အသံ၊ အလိုအလျောက် ပြန်ဖွင့်ခြင်းနှင့် စာမျက်နှာ အရွယ်အစား — ဒီစက်မှာပဲ သိမ်းထားပါတယ်။",
+"set.lang.t": "ဘာသာစကား — Language",
+"set.lang.h": "ပြောင်းလိုက်တာနဲ့ ချက်ချင်း ပြောင်းသွားပါမယ်။ ဒီစက်မှာပဲ သိမ်းထားပါတယ်။",
+"set.lang.saved": "ဘာသာစကား သိမ်းပြီးပါပြီ။",
+"set.theme.t": "အပြင်အဆင် — Theme",
+"set.theme.light": "အလင်း", "set.theme.dark": "အမှောင်",
+"set.notif.t": "အကြောင်းကြားချက် — Notifications",
+"set.notif.sound": "အော်ဒါအသစ် အသံမြည်ရန်",
+"set.notif.test": "အသံ စမ်းကြည့်မည်",
+"set.notif.desktop": "Desktop notification ပြရန်",
+"set.notif.granted": "ခွင့်ပြုပြီးပါပြီ။",
+"set.notif.denied": "ခွင့်မပြုပါ — browser ဆက်တင်မှာ ဖွင့်ရပါမယ်။",
+"set.notif.default": "မမေးရသေးပါ — ဖွင့်လိုက်ရင် မေးပါမယ်။",
+"set.refresh.t": "အလိုအလျောက် ပြန်ဖွင့်ခြင်း — Auto-refresh",
+"set.refresh.h": "စာရိုက်နေတုန်း၊ ဆက်တင် / အက်ဒမင် / မီဒီယာ စာမျက်နှာတွေမှာ ပြန်မဖွင့်ပါ။",
+"set.refresh.off": "ပိတ်ထားမည်",
+"set.pagesize.t": "စာမျက်နှာ တစ်မျက်နှာမှာ ပြမယ့် အရေအတွက် — Rows per page",
+"set.shop.openNow": "ဖွင့်ထားသည်", "set.shop.closedNow": "ပိတ်ထားသည်",
+"set.shop.modeIs": "မုဒ်", "set.shop.hoursIs": "အချိန်အရ",
+"set.shop.openBtn": "ပြန်ဖွင့်မည်", "set.shop.closeBtn": "ယာယီပိတ်မည်",
+"set.shop.toggleFail": "ပြောင်းလို့ မရပါ",
+"set.backup.t": "ဆက်တင် အရန် — Settings backup",
+"set.backup.h": "Export က ဆက်တင်အားလုံးကို JSON ဖိုင် အဖြစ် သိမ်းပေးပါတယ်။ Import က ဖိုင်ထဲက ဆက်တင်တွေကို တစ်ခုချင်း ပြန်ထည့်ပေးပါတယ်။",
+"set.backup.export": "Export — JSON ထုတ်မည်",
+"set.backup.import": "Import — JSON ဖိုင် ရွေးမည်",
+"set.hours.t": "ဖွင့်/ပိတ်ချိန် — Shop Hours",
+"set.hours.open": "ဖွင့်ချိန် (HH:MM)", "set.hours.close": "ပိတ်ချိန် (HH:MM)",
+"set.hours.ownerOnly": "Owner သာ ပြင်နိုင်ပါတယ်။",
+"set.hours.saved": "သိမ်းပြီးပါပြီ။ (Bot ကို မထိခိုက်သေးပါ — အပေါ်က သတိပေးချက်ကို ကြည့်ပါ။)",
+"set.kv.t": "လက်ရှိ ဆက်တင်များ",
+"set.facts.t": "လုပ်ငန်း အချက်အလက် — Business Facts",
+"set.facts.phone": "ဖုန်းနံပါတ် (Viber)", "set.facts.telegram": "Telegram",
+"set.facts.fee": "ပို့ခ အနည်းဆုံး (ဘတ်)",
+"set.facts.warn": "သတိပေးချက်: ဒီမှာ ပြင်တဲ့ ဖုန်း / Telegram / ပို့ခ အနည်းဆုံးသည် Bot ကို မထိခိုက်သေးပါ — Bot ရဲ့ အချက်အလက်က သီးသန့် ဖိုင်ထဲမှာ ရှိနေပါတယ်။ Dashboard နဲ့ Bot အချက်အလက် ချိတ်ဆက်မှုက နောက်ဆက်တွဲ အလုပ် ဖြစ်ပါတယ်။",
+"set.types.t": "ဆိုင်အမျိုးအစားများ — Shop Types",
+"set.types.h": "ပိုင်ရှင်က ဆိုင်အမျိုးအစား ထပ်ထည့် / နာမည်ပြောင်း / ဖွင့်-ပိတ် လုပ်နိုင်ပါတယ်။ အမျိုးအစားတိုင်းက သီးသန့် အကန့်ဖြစ်ပါတယ် — အုပ်စုခွဲမထားပါ။ ဆိုင်သုံးနေတဲ့ အမျိုးအစားကို ဖျက်၍ မရပါ — ပိတ်ထားလို့သာ ရပါတယ်။",
+"set.types.addT": "အမျိုးအစား အသစ် ထည့်မည်",
+"set.types.nameMy": "မြန်မာ နာမည် *", "set.types.nameEn": "အင်္ဂလိပ် နာမည်",
+"set.types.editT": "အမျိုးအစား ပြင်မည် — ",
+"set.types.editType": "အမျိုးအစားပြင်မည်", "set.types.disable": "ပိတ်မည်",
+"set.types.enable": "ဖွင့်မည်", "set.types.del": "ဖျက်မည်",
+"set.d6": "သတိပေးချက် (D6): ဒီမှာ ပြင်တဲ့ ဖွင့်/ပိတ်ချိန်သည် Bot ကို မထိခိုက်သေးပါ — Bot ရဲ့ အချိန်ကို /sethours နဲ့ ပိုင်ရှင်က သတ်မှတ်ရပါမယ်။ Dashboard နဲ့ Bot အချိန် ချိတ်ဆက်မှုက နောက်ဆက်တွဲ အလုပ် ဖြစ်ပါတယ်။",
+"st.pending": "စောင့်ဆိုင်း", "st.new": "အသစ်", "st.confirmed": "အတည်ပြုပြီး",
+"st.shop_confirmed": "ဆိုင်လက်ခံပြီး", "st.shop_rejected": "ဆိုင်ငြင်းပြီး",
+"st.preparing": "ပြင်ဆင်နေသည်", "st.delivering": "ပို့နေသည်", "st.delivered": "ပို့ပြီးပြီ",
+"st.cancelled": "ပယ်ဖျက်ပြီး", "st.failed": "မအောင်မြင်ပါ", "st.completed": "ပြီးစီးပြီး",
+"st.processing": "လုပ်ဆောင်နေသည်", "st.shipped": "ပို့ပြီးပြီ", "st.active": "ဖွင့်ထားသည်",
+"st.approved": "အတည်ပြုပြီး", "st.suspended": "ရပ်ဆိုင်းထားသည်", "st.rejected": "ပယ်ချပြီး",
+"st.verified": "အတည်ပြုပြီး", "st.assigned": "တာဝန်ပေးပြီး", "st.accepted": "လက်ခံပြီး",
+"st.picked_up": "ယူပြီးပြီ", "st.created": "အသစ်",
+"common.err": "မှားယွင်းနေပါတယ်", "common.ordersN": "အော်ဒါ {n}",
+"common.roleVerified": "အခန်းကဏ္ဍသည် server က အတည်ပြုပေးထားခြင်းဖြစ်ပါတယ်။",
+"ov.kpi.incomeToday": "ယနေ့ ဝင်ငွေ", "ov.kpi.incomeMonth": "လအလိုက် {v}",
+"ov.kpi.noFinance": "Finance ကို ခွင့်မပြုပါ",
+"ov.kpi.ordersToday": "ယနေ့ အော်ဒါ", "ov.kpi.ordersTotal": "စုစုပေါင်း {v}",
+"ov.kpi.shops": "ဆိုင်များ", "ov.kpi.shopsOpen": "{n} ဆိုင် ဖွင့်ထားသည်",
+"ov.kpi.ordersPending": "ဖောက်သည်အော်ဒါ စောင့်ဆိုင်း",
+"ov.kpi.riders": "ပို့ဆောင်သူများ", "ov.kpi.ridersDuty": "{n} ဦး တာဝန်ထမ်းဆောင်နေသည်",
+"ov.donut.shopActive": "ဖွင့်ထားသော ဆိုင်", "ov.donut.shopPending": "အတည်ပြုစောင့်ဆိုင်း",
+"ov.donut.shopClosed": "ပိတ်ထားသည်", "ov.donut.shopTotal": "ဆိုင်စုစုပေါင်း",
+"ov.donut.delInProgress": "ပို့နေသည် / တာဝန်ပေးပြီး", "ov.donut.delCreated": "စောင့်ဆိုင်း",
+"ov.donut.delFailed": "မအောင်မြင် / ပယ်ဖျက်", "ov.donut.delTotal": "ပို့ဆောင်မှုစုစုပေါင်း",
+"ov.sales": "ရောင်းအား (၇ ရက်)",
+"ov.salesNote": "ဝင်ငွေသည် အတည်ပြုပြီး (confirmed) စာရင်းများမှ ဖြစ်ပါတယ်။",
+"ov.salesCur": "ငွေကြေး: {v}",
+"ov.latestOrders": "နောက်ဆုံး အော်ဒါများ",
+"ov.th.order": "အော်ဒါ", "ov.th.customer": "ဖောက်သည်", "ov.th.status": "အခြေအနေ",
+"ov.viewAll": "အားလုံး ကြည့်မည်", "ov.viewOrders": "အော်ဒါများ ကြည့်မည်",
+"ov.topShops": "ထိပ်တန်း ဆိုင်များ", "ov.topLatest": "နောက်ဆုံး အော်ဒါ {n} ခု",
+"ov.topNote": "နောက်ဆုံး အော်ဒါ ၅ ခုမှ ရေတွက်ထားခြင်း ဖြစ်ပါတယ်။",
+"ov.shopStatus": "ဆိုင် အခြေအနေ", "ov.deliveries": "ပို့ဆောင်မှု", "ov.viewDeliveries": "ပို့ဆောင်မှု ကြည့်မည်",
+"ov.system": "စနစ် အခြေအနေ",
+"ov.sys.netToday": "ယနေ့ အသားတင်", "ov.sys.netMonth": "လအလိုက် အသားတင်",
+"ov.sys.ordersPending": "စောင့်ဆိုင်း အော်ဒါ",
+"ov.sys.api": "API အခြေအနေ", "ov.sys.working": "အလုပ်လုပ်နေပါတယ် (as of {v})",
+"ov.countN": "{n} ခု", "ov.notices": "သတိပေးချက်",
+"ov.notice.test": "စမ်းသပ် (TEST) အော်ဒါများကို ခြုံငုံစာရင်းမှ ဖယ်ထားပါတယ်။ အော်ဒါစာမျက်နှာမှာ \"စမ်းသပ်အော်ဒါများ ပြပါ\" ကို အမှန်ခြစ်မှ မြင်ရပါမယ်။",
+"ov.notice.hours": "Bot ရဲ့ ဖွင့်/ပိတ်ချိန်ကို Dashboard က ဆက်တင်မှ မပြောင်းသေးပါ — D6 နောက်ဆက်တွဲ အလုပ်အဖြစ် လာပါမယ်။",
+"ord.next.confirmed": "အတည်ပြုမည်", "ord.next.preparing": "ပြင်ဆင်မည်", "ord.next.delivering": "ပို့ဆောင်မည်", "ord.next.delivered": "ပို့ပြီးကြောင်း အတည်ပြုမည်", "ord.next.cancelled": "ပယ်ဖျက်မည်",
+"ord.viewOnly": "ကြည့်ရှု့သာ", "ord.showTest": "စမ်းသပ်အော်ဒါများ (TEST) ပြပါ", "ord.csv": "CSV ထုတ်မည်",
+"ord.th.shopItem": "ဆိုင် / ပစ္စည်း", "ord.th.fee": "ပို့ခ", "ord.th.action": "လုပ်ဆောင်ချက်",
+"ord.prev": "← ရှေ့", "ord.next": "နောက် →", "ord.pageOf": "စာမျက်နှာ {p} / စုစုပေါင်း {n} ခု",
+"ord.confirmChange": "အော်ဒါကို \"{s}\" အဖြစ် ပြောင်းမလား?",
+"common.approve": "အတည်ပြုမည်", "common.reject": "ပယ်ချမည်", "common.rejectReason": "ပယ်ချရတဲ့ အကြောင်းရင်း (မဖြစ်မနေ ရေးရပါမယ်):", "common.all": "အားလုံး",
+"app.optional": "(မဖြစ်မနေ မဟုတ်)",
+"app.th.shop": "ဆိုင်", "app.th.decision": "ဆုံးဖြတ်ချက်",
+"rev.th.review": "သုံးသပ်ချက်", "rev.filterStatus": "အခြေအနေ:", "rev.decided": "ဆုံးဖြတ်ပြီးပါပြီ", "rev.confirmApprove": "ဒီသုံးသပ်ချက်ကို အတည်ပြုပြီး အက်ပ်မှာ ပြမလား?",
+"rev.notice": "သုံးသပ်ချက် တစ်ခုစီကို အတည်ပြုရပါမယ်။ အတည်ပြုပြီးမှ ဆိုင်ရဲ့ သုံးသပ်ချက် tab မှာ ကြယ်နဲ့ မှတ်ချက်အဖြစ် ပြပါမယ်။",
+"sh.noPin": "pin မရှိပါ", "sh.th.contact": "ဆက်သွယ်ရန် / တည်နေရာ", "sh.th.since": "ဖွင့်သည့်ရက်",
+"sh.formAdd": "ဆိုင်အသစ် ထည့်မည်", "sh.formEdit": "ဆိုင် ပြင်မည် — {n}",
+"sh.edit": "ဆိုင်ပြင်မည်",
+"sh.f.name": "ဆိုင်အမည်", "sh.f.type": "အမျိုးအစား", "sh.f.address": "ဆိုင်လိပ်စာ", "sh.f.phone": "ဖုန်းနံပါတ်",
+"sh.f.lat": "GPS Latitude", "sh.f.lon": "GPS Longitude", "sh.f.open": "ဖွင့်ချိန်", "sh.f.close": "ပိတ်ချိန်",
+"sh.f.maps": "Google Maps လင့်ခ်", "sh.f.photo": "ဆိုင်ပုံ", "sh.f.photos": "ဆိုင်ဓာတ်ပုံများ",
+"sh.f.interior": "ဆိုင်အတွင်း ဓာတ်ပုံများ", "sh.f.menu": "မီနူး", "sh.f.video": "ဆိုင်ဗီဒီယို (၁ မိနစ်)",
+"sh.sec.location": "တည်နေရာ", "sh.sec.hours": "ဖွင့်/ပိတ်ချိန်", "sh.sec.media": "ဓာတ်ပုံ၊ ဗီဒီယို၊ မီနူး",
+"sh.sec.mediaSub": "(ဖုန်းထဲက ပုံ/ဗီဒီယို တင်ပါ)",
+"sh.up.photoWhere": "အက်ပ်မှာ ပြမယ့် ပုံ",
+"sh.up.hint": "ဖုန်းထဲက ပုံရွေးပြီး တင်ပါ — အောက်မှာ ပုံပေါ်လာမယ်။",
+"sh.up.videoHint": "ဖုန်းထဲက ၁ မိနစ် ဗီဒီယို ရွေးပြီး တင်ပါ — အောက်မှာ ပေါ်လာမယ်။",
+"sh.up.uploading": "တင်နေပါတယ်…",
+"sh.up.done": "တင်ပြီးပါပြီ။",
+"sh.up.tooBig": "ပုံက ကြီးလွန်းတယ် — 10 MB အောက် ပုံကို ရွေးပေးပါ။",
+"sh.up.videoTooBig": "ဗီဒီယိုက ကြီးလွန်းတယ် — 100 MB အောက် ဗီဒီယို ရွေးပေးပါ။",
+"sh.up.badType": "ဒါ ပုံမဟုတ်ဘူး — JPG, PNG ဒါမှမဟုတ် WebP ပုံကို ရွေးပေးပါ။",
+"sh.up.badVideo": "ဒါ ဗီဒီယို မဟုတ်ဘူး — MP4, WebM ဒါမှမဟုတ် MOV ဗီဒီယို ရွေးပေးပါ။",
+"sh.up.failed": "တင်လို့ မရဘူး — နောက်တစ်ခါ ပြန်လုပ်ပေးပါ။",
+"sh.ph.name": "ဥပမာ ဝမ်ကောင်း သစ်သီးဆိုင်", "sh.ph.phone": "ဥပမာ 09123456789", "sh.ph.lat": "ဥပမာ 20.45", "sh.ph.lon": "ဥပမာ 99.88",
+"sh.ph.link": "https://…", "sh.ph.links": "တစ်ကြောင်းမှာ လင့်ခ် တစ်ခု",
+"sh.add": "ထည့်မည်", "sh.saving": "သိမ်းနေပါတယ်…", "sh.gpsHint": "GPS pin မထည့်ရင် ဆိုင်က Mini App မှာ မပေါ်ပါ။",
+"sh.mapsHint": "လင့်ခ်ထဲမှာ GPS ပါရင် pin ကို အလိုအလျောက် ဖြည့်ပေးပါမယ်။",
+"sh.confirmSuspend": "ဒီဆိုင်ကို အက်ပ်က ဖြုတ်မလား။ ဖြုတ်ထားတဲ့ ဆိုင်ကို ဖောက်သည်တွေ မြင်ရမှာ မဟုတ်ပါ။",
+"sh.suspend": "အက်ပ်က ဖြုတ်မည်", "sh.activate": "အက်ပ်မှာ ပြန်ပြမည်",
+"sh.err.name": "ဆိုင်အမည်ကို ထည့်ပေးပါ။", "sh.err.category": "အမျိုးအစား မှားနေပါတယ် — ပြန်ရွေးပေးပါ။",
+"sh.err.address": "ဆိုင်လိပ်စာကို ထည့်ပေးပါ။", "sh.err.phone": "ဖုန်းနံပါတ်ကို ထည့်ပေးပါ။",
+"sh.err.gps": "GPS နံပါတ်တွေ မှားနေပါတယ် — ပြန်စစ်ပေးပါ။", "sh.err.time": "ဖွင့်/ပိတ်ချိန် မှားနေပါတယ် — AM/PM ကို ပြန်ရွေးပေးပါ။",
+"sh.err.sameTime": "ဖွင့်ချိန်နဲ့ ပိတ်ချိန် တူနေပါတယ် — ချိန်တစ်ခုကို ပြောင်းပေးပါ။",
+"sh.err.url": "လင့်ခ် မှားနေပါတယ် — လင့်ခ် အမှန်ကို ပြန်ထည့်ပေးပါ။",
+"sh.err.notFound": "ဒီဆိုင် မရှိတော့ပါ — စာမျက်နှာကို ပြန်ဖွင့်ပေးပါ။", "sh.err.nothing": "ပြောင်းလဲစရာ မရှိပါ။",
+"sh.err.generic": "တစ်ခုခု မှားနေပါတယ် — ပြန်ကြိုးစားပေးပါ။",
+"prod.th.product": "ပစ္စည်း", "prod.th.price": "ဈေး", "prod.available": "ရနိုင်သည်", "prod.unavailable": "မရနိုင်ပါ", "prod.add": "ပစ္စည်းအသစ် ထည့်မည်",
+"prod.f.name": "ပစ္စည်းအမည်", "prod.f.currency": "ငွေကြေး", "prod.f.desc": "ဖော်ပြချက်",
+"prod.f.group": "အုပ်စု", "prod.f.photo": "ဓာတ်ပုံ", "prod.ph.group": "Food",
+"prod.cur.thb": "THB — ဘတ် (တာချီလိတ်)", "prod.cur.mmk": "MMK — ကျပ် (အခြားမြို့)",
+"cu.th.phone": "ဖုန်း", "cu.th.orders": "အော်ဒါ အရေအတွက်", "cu.th.last": "နောက်ဆုံး ဆိုင် / ရက်",
+"cu.totalN": "စုစုပေါင်း {n} ဦး",
+"dl.rider": "ပို့ဆောင် {n}", "dl.route": "လမ်းကြောင်း ကြည့်မည် ↗", "dl.lastPos": "နောက်ဆုံး တည်နေရာ",
+"dl.ageSec": "{n} စက္ကန့်အကြာက", "dl.noLive": "live တည်နေရာ မရှိသေးပါ",
+"dl.statusT": "ပို့ဆောင်မှု အခြေအနေ", "dl.noteT": "အရေးကြီးချက်",
+"dl.noteRider": "ပို့ဆောင်သူက ဆိုင်ကယ် စီးနေချိန်မှာ website ကြည့်ဖို့ အဆင်မပြေပါ — အလုပ်ကတ်ကို Bot chat ထဲက ပို့ပေးပါတယ်။",
+"dl.noteFee": "ပို့ခကို ပို့ဆောင်သူက အပြည့်အဝ ရပါတယ် (Safe Deli က ဖြတ်မယူပါ)။ လောလောဆယ် ပို့ဆောင်သူဟာ ပိုင်ရှင်ကိုယ်တိုင် ဖြစ်ပါတယ်။",
+"dl.th.statusRider": "အခြေအနေ / ပို့ဆောင်သူ", "dl.th.routePos": "လမ်းကြောင်း / တည်နေရာ", "dl.th.date": "ရက်",
+"ri.onDuty": "တာဝန်ထမ်းဆောင်နေသည်", "ri.offDuty": "နားနေသည်", "ri.ageMin": "{n} မိနစ်အကြာက",
+"ri.noPos": "တည်နေရာ မရှိသေးပါ",
+"ri.notice": "လောလောဆယ် ပို့ဆောင်သူဟာ ပိုင်ရှင်ကိုယ်တိုင် (Min) ဖြစ်ပါတယ်။ Rider #1 Min Min ကို စာရင်းသွင်းထားပါတယ်။",
+"ri.th.rider": "ပို့ဆောင်သူ", "ri.th.lastPos": "နောက်ဆုံး တည်နေရာ",
+"fin.in": "ဝင်ငွေ", "fin.out": "ထွက်ငွေ",
+"fin.d3": "ငွေပေးချေမှု စည်းမျဉ်း (D3 — ပိုင်ရှင် အတည်ပြုပြီး): ကော်မရှင် 0% (အခမဲ့) — ဆိုင်ကနေ ဖြတ်မယူပါ။ ပို့ခကို ပို့ဆောင်သူက အပြည့်အဝ ရပါတယ်။ ဆိုင်ကို အော်ဒါတစ်ခု ပြီးတိုင်း ပေးချေပါတယ် (manual settlement)။ ငွေကြေးက ဆိုင်ရှိတဲ့ မြို့နဲ့ လိုက်ပါတယ် — တာချီလိတ် ဆိုင်များ ဘတ် (฿)၊ အခြားမြို့များ ကျပ် (Ks)။",
+"fin.netToday": "ယနေ့ အသားတင်", "fin.expenseToday": "ယနေ့ ထွက်ငွေ", "fin.ordersTotal": "အော်ဒါ စုစုပေါင်း", "fin.todayN": "ယနေ့ {n} ခု",
+"fin.shopsApproved": "{n} ဆိုင် အတည်ပြုပြီး", "fin.payT": "ငွေပေးချေမှု အမျိုးအစား",
+"fin.fromListed": "ပြထားသော စာရင်းများမှ",
+"fin.donutNote": "Donut ကို အပေါ်က စာရင်း ၁၀၀ မှ တွက်ထားခြင်း ဖြစ်ပါတယ်။ Cash/Card/Online အလိုက် ခွဲထားပါတယ်။",
+"fin.addT": "စာရင်း ထည့်မည် (Owner / Finance)",
+"fin.f.amount": "ပမာဏ", "fin.f.method": "ငွေပေးချေမှု နည်းလမ်း",
+"fin.f.shop": "ဆိုင်အမှတ် (shop_id, မရှိရင် လွတ်ထားပါ)",
+"fin.f.note": "မှတ်ချက် (ပြင်ဆင်မှုဆို အကြောင်းရင်း ရေးရပါမယ်)",
+"fin.curThb": "THB — ဘတ် (တာချီလိတ်)", "fin.curMmk": "MMK — ကျပ် (အခြားမြို့)",
+"fin.save": "စာရင်း သိမ်းမည်",
+"fin.appendNote": "စာရင်းသည် append-only — ပြင်လို့ မရပါ၊ မှားရင် အသစ်ထည့်ပြီး ပြင်ရပါမယ်။",
+"fin.ledgerT": "စာရင်းများ", "fin.th.typeNote": "အမျိုးအစား / မှတ်ချက်", "fin.th.direction": "လမ်းကြောင်း",
+"fin.th.method": "နည်းလမ်း",
+"me.heroT": "Hero ပုံ", "me.heroEmpty": "Hero ပုံ မသတ်မှတ်ရသေးပါ (နမူနာ)", "me.heroPh": "https://… ပုံလင့်",
+"me.promoT": "Promotion နေရာများ (အများဆုံး ၈ ခု)", "me.promoEmpty": "Promotion မရှိသေးပါ (နမူနာ)",
+"me.featT": "Featured ဆိုင်များ", "me.featEmpty": "Featured ဆိုင် မရှိသေးပါ (နမူနာ)",
+"me.note": "မီဒီယာကို Settings စာမျက်နှာက promo_slots / featured_shop_ids ကနေလည်း ပြင်နိုင်ပါတယ်။ ပုံဖိုင်များကို Bot chat ကနေ ပို့ပြီး သိမ်းထားရပါမယ်။",
+"set.types.notice": "ဒီစာရင်းကို ဆိုင်ထည့်တဲ့ဖောင်မှာ သုံးပါတယ်။",
+"set.types.phMy": "ဥပမာ ပန်းကန်ဆိုင်", "set.types.phEn": "ဥပမာ Plate shop",
+"set.types.confirmDel": "ဒီအမျိုးအစားကို ဖျက်မလား။ ဆိုင်သုံးနေတဲ့ အမျိုးအစားကို ဖျက်၍ မရပါ။",
+"set.backup.errJson": "JSON object ဖြစ်ရပါမယ်။", "set.backup.errKey": "မသိတဲ့ key: {n}",
+"us.th.user": "အသုံးပြုသူ", "us.th.role": "အခန်းကဏ္ဍ", "us.shopN": "ဆိုင် #{n}",
+"us.active": "ဖွင့်ထားသည်", "us.inactive": "ပိတ်ထားသည်", "us.newT": "အကောင့်အသစ် ဖွင့်မည်",
+"us.f.name": "အမည် (Display name)", "us.f.pass": "စကားဝှက် (အနည်းဆုံး ၁၀ လုံး)",
+"us.f.shop": "ဆိုင်ရွေးပါ (Merchant အတွက် မဖြစ်မနေ)", "us.ph.user": "ဥပမာ shop-aung",
+"us.create": "အကောင့် ဖွင့်မည်", "us.created": "အကောင့် ဖွင့်ပြီးပါပြီ။",
+"au.th.actor": "လုပ်သူ", "au.th.action": "လုပ်ရပ်", "au.th.details": "အသေးစိတ်",
+"mo.kpi.products": "ပစ္စည်း", "mo.kpi.settled": "ပေးချေပြီး (Settled)", "mo.kpi.pending": "ပေးချေရန် ကျန်သည်",
+"mo.kpi.shopStatus": "ဆိုင် အခြေအနေ", "mo.tr.total": "စုစုပေါင်း {n}", "mo.tr.avail": "{n} ခု ရနိုင်သည်",
+"mo.tr.times": "{n} ကြိမ် ({c})", "mo.none": "မရှိသေးပါ", "mo.tr.pending": "ပို့ပြီးပြီး အော်ဒါများ",
+"mo.notice": "အော်ဒါတစ်ခု ပြီးတိုင်း ပိုင်ရှင်က ဆိုင်ကို ပေးချေပါတယ်။ ကော်မရှင် 0% — ဆိုင်ကနေ ဖြတ်မယူပါ။ ငွေကြေးက ဆိုင်ရှိတဲ့ မြို့နဲ့ လိုက်ပါတယ် (တာချီလိတ် — ဘတ်)။",
+"mprod.makeUnavail": "မရနိုင်အောင် လုပ်မည်", "mprod.makeAvail": "ရနိုင်အောင် လုပ်မည်",
+"po.rulesT": "ငွေပေးချေမှု စည်းမျဉ်း", "po.rulesNote": "ကော်မရှင် 0% ပါ။ ပို့ခကို ပို့ဆောင်သူက အပြည့်အဝ ရပါတယ်။ အော်ဒါတစ်ခု ပြီးတိုင်း ပိုင်ရှင်က ဆိုင်ကို ပေးချေပါတယ်။ ငွေကြေးက ဆိုင်ရှိတဲ့ မြို့နဲ့ လိုက်ပါတယ် — တာချီလိတ် ဆိုင်များ ဘတ် (฿)၊ အခြားမြို့များ ကျပ် (Ks)။", "po.settledT": "ပေးချေပြီးသည်", "po.pendingT": "ပေးချေရန် ကျန်သည်",
+"po.th.note": "မှတ်ချက်", "po.ownerConfirm": "ပိုင်ရှင် အတည်ပြုမည်", "po.curHint": "ငွေကြေး အကြံပြုချက်",
+"po.curThb": "(တာချီလိတ် — ဘတ်)", "po.curMmk": "(ကျပ်)", "po.curNone": "မရှိသေးပါ — ပထမဆုံး စာရင်းမှာ သတ်မှတ်ပါမယ်"
+},
+th: {
+"nav.overview": "ภาพรวม", "nav.orders": "คำสั่งซื้อ",
+"nav.reviews": "รีวิว", "nav.shops": "ร้านค้า", "nav.products": "สินค้า",
+"nav.customers": "ลูกค้า", "nav.delivery": "การจัดส่ง", "nav.riders": "ไรเดอร์",
+"nav.finance": "การเงิน", "nav.media": "สื่อ", "nav.settings": "ตั้งค่า",
+"nav.users": "แอดมิน", "nav.audit": "บันทึก", "nav.moverview": "ร้านของฉัน",
+"nav.morders": "คำสั่งซื้อของฉัน", "nav.mproducts": "สินค้าของฉัน",
+"nav.payouts": "การจ่ายเงิน", "nav.prefs": "ตั้งค่าของฉัน", "nav.account": "บัญชี",
+"top.searchPh": "ค้นหา… (คำสั่งซื้อ / ร้านค้า / ลูกค้า)", "top.logout": "ออกจากระบบ",
+"top.apiOk": "API: ใช้งานได้", "top.apiFail": "API: ตรวจสอบไม่ได้",
+"top.themeToDark": "เปลี่ยนเป็นโหมดมืด", "top.themeToLight": "เปลี่ยนเป็นโหมดสว่าง",
+"top.lang": "ภาษา",
+"login.subtitle": "แดชบอร์ดจัดการ — Management System",
+"login.errToken": "ไม่ได้รับ Token", "login.err401": "Username / Password ไม่ถูกต้องค่ะ",
+"meta.title": "Safe Deli — แดชบอร์ดจัดการ",
+"login.user": "ชื่อผู้ใช้ (Username)", "login.pass": "รหัสผ่าน (Password)",
+"login.btn": "เข้าสู่ระบบ — Log in",
+"login.note": "โทเค็นเซสชันเก็บไว้ในหน่วยความจำของเบราว์เซอร์เท่านั้น ปิดหน้าจะออกจากระบบอัตโนมัติ",
+"common.save": "บันทึก", "common.cancel": "ยกเลิก", "common.loading": "กำลังโหลด…",
+"common.errTitle": "เปิดไม่ได้", "common.empty": "ยังไม่มีข้อมูล", "common.saved": "บันทึกแล้ว",
+"v.overview.t": "ภาพรวม",
+"v.overview.s": "สวัสดีค่ะ ดูภาพรวมของ Safe Deli วันนี้ได้ที่นี่ค่ะ",
+"v.orders.t": "คำสั่งซื้อ",
+"v.orders.s": "คำสั่งซื้อของลูกค้า",
+"v.reviews.t": "รีวิว",
+"v.reviews.s": "รีวิวของลูกค้า อนุมัติแล้วจึงจะแสดงในแอป ไม่มีรีวิวปลอม",
+"v.shops.t": "ร้านค้า",
+"v.shops.s": "ร้านที่อนุมัติแล้ว ป้าย NEW แสดงร้านที่อนุมัติภายใน 7 วัน",
+"v.products.t": "สินค้า",
+"v.products.s": "สินค้าและราคาของทุกร้าน",
+"v.customers.t": "ลูกค้า",
+"v.customers.s": "รายชื่อลูกค้าจากคำสั่งซื้อ Support / Operations ไม่เห็นเบอร์โทรเต็ม",
+"v.delivery.t": "การจัดส่ง",
+"v.delivery.s": "งานจัดส่งทั้งหมดและเส้นทาง ไม่มีแผนที่สด มีเพียงลิงก์เส้นทางและตำแหน่งล่าสุด",
+"v.riders.t": "ไรเดอร์",
+"v.riders.s": "รายชื่อไรเดอร์ มอบงานให้ไรเดอร์ที่ใกล้ที่สุดก่อน",
+"v.finance.t": "การเงิน",
+"v.finance.s": "บัญชีรายรับรายจ่าย แต่ละรายการแสดงสกุลเงินของร้านนั้น (บาท/จ๊าต)",
+"v.media.t": "สื่อ",
+"v.media.s": "แบนเนอร์ รูป hero ช่องโปรโมชัน และร้านแนะนำ",
+"v.settings.t": "ตั้งค่า",
+"v.settings.s": "เวลาเปิดปิดร้าน ประเภทร้าน แบนเนอร์ และการตั้งค่าอื่น ๆ",
+"v.users.t": "แอดมิน",
+"v.users.s": "บัญชีตามบทบาท บัญชี Merchant ต้องผูกกับร้านหนึ่งร้าน",
+"v.audit.t": "บันทึก",
+"v.audit.s": "ใครทำอะไรเมื่อไร บันทึกนี้แก้ไขหรือลบไม่ได้",
+"v.moverview.t": "ร้านของฉัน",
+"v.moverview.s": "สวัสดีค่ะ นี่คือภาพรวมของร้าน",
+"v.morders.t": "คำสั่งซื้อของฉัน",
+"v.morders.s": "แสดงเฉพาะคำสั่งซื้อของร้านฉัน",
+"v.mproducts.t": "สินค้าของฉัน",
+"v.mproducts.s": "แสดงเฉพาะสินค้าของร้านฉัน แก้ไขราคาและสถานะได้",
+"v.payouts.t": "การจ่ายเงิน",
+"v.payouts.s": "เงินที่จ่ายให้ร้านแล้ว และคำสั่งซื้อที่รอจ่าย",
+"v.prefs.t": "ตั้งค่าของฉัน",
+"v.prefs.s": "ภาษา โหมดสว่าง/มืด เสียง รีเฟรชอัตโนมัติ และขนาดหน้า — เก็บไว้ในเครื่องนี้เท่านั้น",
+"set.lang.t": "ภาษา — Language",
+"set.lang.h": "เปลี่ยนทันทีที่เลือก เก็บไว้ในเครื่องนี้เท่านั้น",
+"set.lang.saved": "บันทึกภาษาแล้ว",
+"set.theme.t": "รูปลักษณ์ — Theme",
+"set.theme.light": "สว่าง", "set.theme.dark": "มืด",
+"set.notif.t": "การแจ้งเตือน — Notifications",
+"set.notif.sound": "เสียงเตือนเมื่อมีคำสั่งซื้อใหม่",
+"set.notif.test": "ทดสอบเสียง",
+"set.notif.desktop": "แสดงการแจ้งเตือนบนเดสก์ท็อป",
+"set.notif.granted": "อนุญาตแล้ว",
+"set.notif.denied": "ไม่อนุญาต — ต้องเปิดในตั้งค่าเบราว์เซอร์",
+"set.notif.default": "ยังไม่ได้ถาม — เปิดแล้วจะถาม",
+"set.refresh.t": "รีเฟรชอัตโนมัติ — Auto-refresh",
+"set.refresh.h": "ไม่รีเฟรชขณะพิมพ์ หรือในหน้า Settings / Admin / Media",
+"set.refresh.off": "ปิด",
+"set.pagesize.t": "จำนวนแถวต่อหน้า — Rows per page",
+"set.shop.openNow": "เปิดอยู่", "set.shop.closedNow": "ปิดอยู่",
+"set.shop.modeIs": "โหมด", "set.shop.hoursIs": "ตามเวลา",
+"set.shop.openBtn": "เปิดอีกครั้ง", "set.shop.closeBtn": "ปิดชั่วคราว",
+"set.shop.toggleFail": "เปลี่ยนไม่ได้",
+"set.backup.t": "สำรองการตั้งค่า — Settings backup",
+"set.backup.h": "Export บันทึกการตั้งค่าทั้งหมดเป็นไฟล์ JSON Import จะใส่ค่ากลับทีละข้อ",
+"set.backup.export": "Export — ดาวน์โหลด JSON",
+"set.backup.import": "Import — เลือกไฟล์ JSON",
+"set.hours.t": "เวลาเปิดปิดร้าน — Shop Hours",
+"set.hours.open": "เวลาเปิด (HH:MM)", "set.hours.close": "เวลาปิด (HH:MM)",
+"set.hours.ownerOnly": "เฉพาะ Owner เท่านั้นที่แก้ไขได้",
+"set.hours.saved": "บันทึกแล้ว (ยังไม่มีผลกับ Bot — ดูคำเตือนด้านบน)",
+"set.kv.t": "การตั้งค่าปัจจุบัน",
+"set.facts.t": "ข้อมูลธุรกิจ — Business Facts",
+"set.facts.phone": "เบอร์โทร (Viber)", "set.facts.telegram": "Telegram",
+"set.facts.fee": "ค่าจัดส่งขั้นต่ำ (บาท)",
+"set.facts.warn": "คำเตือน: เบอร์โทร / Telegram / ค่าจัดส่งขั้นต่ำที่แก้ที่นี่ ยังไม่มีผลกับ Bot — ข้อมูลของ Bot อยู่ในไฟล์แยก การเชื่อมโยงเป็นงานถัดไป",
+"set.types.t": "ประเภทร้านค้า — Shop Types",
+"set.types.h": "Owner เพิ่ม / เปลี่ยนชื่อ / เปิด-ปิดประเภทร้านได้ แต่ละประเภทแยกกัน ไม่มีการจัดกลุ่ม ประเภทที่ร้านใช้อยู่ลบไม่ได้ — ปิดได้เท่านั้น",
+"set.types.addT": "เพิ่มประเภทใหม่",
+"set.types.nameMy": "ชื่อภาษาพม่า *", "set.types.nameEn": "ชื่อภาษาอังกฤษ",
+"set.types.editT": "แก้ไขประเภท — ",
+"set.types.editType": "แก้ไขประเภท", "set.types.disable": "ปิด",
+"set.types.enable": "เปิด", "set.types.del": "ลบ",
+"set.d6": "คำเตือน (D6): เวลาเปิดปิดที่แก้ที่นี่ ยังไม่มีผลกับ Bot — Owner ต้องตั้งเวลา Bot ด้วย /sethours การเชื่อมโยงเวลาเป็นงานถัดไป",
+"st.pending": "รอดำเนินการ", "st.new": "ใหม่", "st.confirmed": "ยืนยันแล้ว",
+"st.shop_confirmed": "ร้านรับแล้ว", "st.shop_rejected": "ร้านปฏิเสธแล้ว",
+"st.preparing": "กำลังเตรียม", "st.delivering": "กำลังจัดส่ง", "st.delivered": "จัดส่งแล้ว",
+"st.cancelled": "ยกเลิกแล้ว", "st.failed": "ไม่สำเร็จ", "st.completed": "เสร็จสมบูรณ์",
+"st.processing": "กำลังดำเนินการ", "st.shipped": "จัดส่งแล้ว", "st.active": "เปิดใช้งาน",
+"st.approved": "อนุมัติแล้ว", "st.suspended": "ระงับแล้ว", "st.rejected": "ปฏิเสธแล้ว",
+"st.verified": "ยืนยันแล้ว", "st.assigned": "มอบหมายแล้ว", "st.accepted": "รับแล้ว",
+"st.picked_up": "รับของแล้ว", "st.created": "สร้างแล้ว",
+"common.err": "เกิดข้อผิดพลาด", "common.ordersN": "คำสั่งซื้อ {n}",
+"common.roleVerified": "บทบาทของคุณได้รับการยืนยันโดยเซิร์ฟเวอร์",
+"ov.kpi.incomeToday": "รายได้วันนี้", "ov.kpi.incomeMonth": "เดือนนี้ {v}",
+"ov.kpi.noFinance": "ไม่มีสิทธิ์ดูการเงิน",
+"ov.kpi.ordersToday": "คำสั่งซื้อวันนี้", "ov.kpi.ordersTotal": "ทั้งหมด {v}",
+"ov.kpi.shops": "ร้านค้า", "ov.kpi.shopsOpen": "เปิดอยู่ {n} ร้าน",
+"ov.kpi.ordersPending": "คำสั่งซื้อรอดำเนินการ",
+"ov.kpi.riders": "ไรเดอร์", "ov.kpi.ridersDuty": "ปฏิบัติหน้าที่อยู่ {n} คน",
+"ov.donut.shopActive": "ร้านที่เปิดอยู่", "ov.donut.shopPending": "รอการยืนยัน",
+"ov.donut.shopClosed": "ปิดอยู่", "ov.donut.shopTotal": "ร้านทั้งหมด",
+"ov.donut.delInProgress": "กำลังจัดส่ง / มอบหมายแล้ว", "ov.donut.delCreated": "รอดำเนินการ",
+"ov.donut.delFailed": "ไม่สำเร็จ / ยกเลิก", "ov.donut.delTotal": "การจัดส่งทั้งหมด",
+"ov.sales": "ยอดขาย (7 วัน)",
+"ov.salesNote": "รายได้นับจากรายการที่ยืนยันแล้ว (confirmed) เท่านั้น",
+"ov.salesCur": "สกุลเงิน: {v}",
+"ov.latestOrders": "คำสั่งซื้อล่าสุด",
+"ov.th.order": "คำสั่งซื้อ", "ov.th.customer": "ลูกค้า", "ov.th.status": "สถานะ",
+"ov.viewAll": "ดูทั้งหมด", "ov.viewOrders": "ดูคำสั่งซื้อ",
+"ov.topShops": "ร้านยอดนิยม", "ov.topLatest": "คำสั่งซื้อล่าสุด {n} รายการ",
+"ov.topNote": "นับจากคำสั่งซื้อล่าสุด 5 รายการ",
+"ov.shopStatus": "สถานะร้านค้า", "ov.deliveries": "การจัดส่ง", "ov.viewDeliveries": "ดูการจัดส่ง",
+"ov.system": "สถานะระบบ",
+"ov.sys.netToday": "สุทธิวันนี้", "ov.sys.netMonth": "สุทธิรายเดือน",
+"ov.sys.ordersPending": "คำสั่งซื้อที่รออยู่",
+"ov.sys.api": "สถานะ API", "ov.sys.working": "กำลังทำงาน (ณ {v})",
+"ov.countN": "{n} รายการ", "ov.notices": "การแจ้งเตือน",
+"ov.notice.test": "ไม่นับคำสั่งซื้อทดสอบ (TEST) ในภาพรวม หากต้องการดู ให้ติ๊ก \"แสดงคำสั่งซื้อทดสอบ\" ที่หน้าคำสั่งซื้อ",
+"ov.notice.hours": "เวลาเปิดปิดของ Bot ยังเปลี่ยนจาก Dashboard ไม่ได้ — เป็นงานถัดไป (D6)",
+"ord.next.confirmed": "ยืนยัน", "ord.next.preparing": "เริ่มเตรียม", "ord.next.delivering": "เริ่มจัดส่ง", "ord.next.delivered": "ยืนยันว่าจัดส่งแล้ว", "ord.next.cancelled": "ยกเลิก",
+"ord.viewOnly": "ดูอย่างเดียว", "ord.showTest": "แสดงคำสั่งซื้อทดสอบ (TEST)", "ord.csv": "ส่งออก CSV",
+"ord.th.shopItem": "ร้านค้า / สินค้า", "ord.th.fee": "ค่าส่ง", "ord.th.action": "การดำเนินการ",
+"ord.prev": "← ก่อนหน้า", "ord.next": "ถัดไป →", "ord.pageOf": "หน้า {p} / ทั้งหมด {n} รายการ",
+"ord.confirmChange": "เปลี่ยนคำสั่งซื้อนี้เป็น \"{s}\" ใช่ไหม?",
+"common.approve": "อนุมัติ", "common.reject": "ปฏิเสธ", "common.rejectReason": "เหตุผลที่ปฏิเสธ (จำเป็นต้องระบุ):", "common.all": "ทั้งหมด",
+"app.optional": "(ไม่บังคับ)",
+"app.th.shop": "ร้านค้า", "app.th.decision": "การตัดสินใจ",
+"rev.th.review": "รีวิว", "rev.filterStatus": "สถานะ:", "rev.decided": "ตัดสินใจแล้ว", "rev.confirmApprove": "อนุมัติรีวิวนี้และแสดงในแอปใช่ไหม?",
+"rev.notice": "รีวิวแต่ละรายการต้องได้รับการอนุมัติก่อน จึงจะแสดงเป็นดาวและความคิดเห็นในแท็บรีวิวของร้าน",
+"sh.noPin": "ไม่มี pin", "sh.th.contact": "ติดต่อ / ตำแหน่ง", "sh.th.since": "วันที่เปิด",
+"sh.formAdd": "เพิ่มร้านใหม่", "sh.formEdit": "แก้ไขร้าน — {n}",
+"sh.edit": "แก้ไขร้าน",
+"sh.f.name": "ชื่อร้าน", "sh.f.type": "ประเภท", "sh.f.address": "ที่อยู่ร้าน", "sh.f.phone": "เบอร์โทรศัพท์",
+"sh.f.lat": "GPS Latitude", "sh.f.lon": "GPS Longitude", "sh.f.open": "เวลาเปิด", "sh.f.close": "เวลาปิด",
+"sh.f.maps": "ลิงก์ Google Maps", "sh.f.photo": "รูปหน้าร้าน", "sh.f.photos": "รูปภาพร้าน",
+"sh.f.interior": "รูปภายในร้าน", "sh.f.menu": "เมนู", "sh.f.video": "วิดีโอร้าน (1 นาที)",
+"sh.sec.location": "ตำแหน่ง", "sh.sec.hours": "เวลาเปิด-ปิด", "sh.sec.media": "รูปภาพ วิดีโอ เมนู",
+"sh.sec.mediaSub": "(อัปโหลดรูป/วิดีโอจากโทรศัพท์)",
+"sh.up.photoWhere": "รูปที่แสดงในแอป",
+"sh.up.hint": "แตะเพื่ออัปโหลดรูปจากโทรศัพท์ — รูปจะแสดงด้านล่าง",
+"sh.up.videoHint": "แตะเพื่ออัปโหลดวิดีโอ 1 นาทีจากโทรศัพท์ — จะแสดงด้านล่าง",
+"sh.up.uploading": "กำลังอัปโหลด…",
+"sh.up.done": "อัปโหลดแล้ว",
+"sh.up.tooBig": "รูปใหญ่เกินไป — กรุณาเลือกรูปที่เล็กกว่า 10 MB",
+"sh.up.videoTooBig": "วิดีโอใหญ่เกินไป — กรุณาเลือกวิดีโอที่เล็กกว่า 100 MB",
+"sh.up.badType": "ไฟล์นี้ไม่ใช่รูปภาพ — กรุณาเลือก JPG, PNG หรือ WebP",
+"sh.up.badVideo": "ไฟล์นี้ไม่ใช่วิดีโอ — กรุณาเลือก MP4, WebM หรือ MOV",
+"sh.up.failed": "อัปโหลดไม่สำเร็จ — กรุณาลองอีกครั้ง",
+"sh.ph.name": "ตัวอย่าง ร้านผลไม้วังกอง", "sh.ph.phone": "ตัวอย่าง 09123456789", "sh.ph.lat": "ตัวอย่าง 20.45", "sh.ph.lon": "ตัวอย่าง 99.88",
+"sh.ph.link": "https://…", "sh.ph.links": "หนึ่งลิงก์ต่อบรรทัด",
+"sh.add": "เพิ่ม", "sh.saving": "กำลังบันทึก…", "sh.gpsHint": "หากไม่ใส่ GPS pin ร้านจะไม่แสดงใน Mini App",
+"sh.mapsHint": "หากลิงก์มีพิกัด GPS ระบบจะกรอก pin ให้อัตโนมัติ",
+"sh.confirmSuspend": "นำร้านนี้ออกจากแอปใช่ไหม ลูกค้าจะไม่เห็นร้านที่นำออก",
+"sh.suspend": "นำออกจากแอป", "sh.activate": "แสดงในแอปอีกครั้ง",
+"sh.err.name": "กรุณาใส่ชื่อร้าน", "sh.err.category": "ประเภทไม่ถูกต้อง — กรุณาเลือกใหม่",
+"sh.err.address": "กรุณาใส่ที่อยู่ร้าน", "sh.err.phone": "กรุณาใส่เบอร์โทรศัพท์",
+"sh.err.gps": "พิกัด GPS ไม่ถูกต้อง — กรุณาตรวจสอบอีกครั้ง", "sh.err.time": "เวลาเปิด-ปิดไม่ถูกต้อง — กรุณาเลือก AM/PM ใหม่อีกครั้ง",
+"sh.err.sameTime": "เวลาเปิดและเวลาปิดเท่ากัน — กรุณาเปลี่ยนเวลาหนึ่ง",
+"sh.err.url": "ลิงก์ไม่ถูกต้อง — กรุณาใส่ลิงก์จริงอีกครั้ง",
+"sh.err.notFound": "ไม่พบร้านนี้แล้ว — กรุณาเปิดหน้านี้ใหม่", "sh.err.nothing": "ไม่มีอะไรเปลี่ยนแปลง",
+"sh.err.generic": "มีบางอย่างผิดพลาด — กรุณาลองอีกครั้ง",
+"prod.th.product": "สินค้า", "prod.th.price": "ราคา", "prod.available": "มีสินค้า", "prod.unavailable": "ไม่มีสินค้า", "prod.add": "เพิ่มสินค้าใหม่",
+"prod.f.name": "ชื่อสินค้า", "prod.f.currency": "สกุลเงิน", "prod.f.desc": "คำอธิบาย",
+"prod.f.group": "กลุ่ม", "prod.f.photo": "รูปภาพ", "prod.ph.group": "Food",
+"prod.cur.thb": "THB — บาท (ท่าขี้เหล็ก)", "prod.cur.mmk": "MMK — จ๊าต (เมืองอื่น)",
+"cu.th.phone": "เบอร์โทร", "cu.th.orders": "จำนวนคำสั่งซื้อ", "cu.th.last": "ร้านล่าสุด / วันที่",
+"cu.totalN": "ทั้งหมด {n} คน",
+"dl.rider": "ไรเดอร์ {n}", "dl.route": "ดูเส้นทาง ↗", "dl.lastPos": "ตำแหน่งล่าสุด",
+"dl.ageSec": "{n} วินาทีที่แล้ว", "dl.noLive": "ยังไม่มีตำแหน่ง live",
+"dl.statusT": "สถานะการจัดส่ง", "dl.noteT": "ข้อสำคัญ",
+"dl.noteRider": "ไรเดอร์ขี่มอเตอร์ไซค์อยู่จึงดูเว็บไซต์ไม่สะดวก — การ์ดงานจะส่งให้ในแชต Bot",
+"dl.noteFee": "ไรเดอร์ได้รับค่าส่งเต็มจำนวน (Safe Deli ไม่หัก) ตอนนี้ไรเดอร์คือเจ้าของเอง",
+"dl.th.statusRider": "สถานะ / ไรเดอร์", "dl.th.routePos": "เส้นทาง / ตำแหน่ง", "dl.th.date": "วันที่",
+"ri.onDuty": "กำลังปฏิบัติหน้าที่", "ri.offDuty": "พักอยู่", "ri.ageMin": "{n} นาทีที่แล้ว",
+"ri.noPos": "ยังไม่มีตำแหน่ง",
+"ri.notice": "ตอนนี้ไรเดอร์คือเจ้าของเอง (Min) ลงทะเบียน Rider #1 Min Min ไว้แล้ว",
+"ri.th.rider": "ไรเดอร์", "ri.th.lastPos": "ตำแหน่งล่าสุด",
+"fin.in": "รายรับ", "fin.out": "รายจ่าย",
+"fin.d3": "กฎการชำระเงิน (D3 — เจ้าของยืนยันแล้ว): ค่าคอมมิชชัน 0% (ฟรี) — ไม่หักจากร้าน ไรเดอร์ได้รับค่าส่งเต็มจำนวน จ่ายให้ร้านทุกครั้งที่คำสั่งซื้อเสร็จ (manual settlement) สกุลเงินขึ้นกับเมืองที่ร้านตั้งอยู่ — ร้านในท่าขี้เหล็กเป็นบาท (฿) เมืองอื่นเป็นจ๊าต (Ks)",
+"fin.netToday": "สุทธิวันนี้", "fin.expenseToday": "รายจ่ายวันนี้", "fin.ordersTotal": "คำสั่งซื้อทั้งหมด", "fin.todayN": "วันนี้ {n} รายการ",
+"fin.shopsApproved": "อนุมัติแล้ว {n} ร้าน", "fin.payT": "ประเภทการชำระเงิน",
+"fin.fromListed": "จากรายการที่แสดง",
+"fin.donutNote": "แผนภูมิวงกลมคำนวณจาก 100 รายการด้านบน แยกตาม Cash / Card / Online",
+"fin.addT": "เพิ่มรายการ (Owner / Finance)",
+"fin.f.amount": "จำนวนเงิน", "fin.f.method": "วิธีชำระเงิน",
+"fin.f.shop": "รหัสร้าน (shop_id, ถ้าไม่มีให้เว้นว่างไว้)",
+"fin.f.note": "หมายเหตุ (ถ้าเป็นการแก้ไข ต้องเขียนเหตุผล)",
+"fin.curThb": "THB — บาท (ท่าขี้เหล็ก)", "fin.curMmk": "MMK — จ๊าต (เมืองอื่น)",
+"fin.save": "บันทึกรายการ",
+"fin.appendNote": "รายการเป็นแบบ append-only — แก้ไขไม่ได้ ถ้าผิดให้เพิ่มรายการใหม่เพื่อแก้ไข",
+"fin.ledgerT": "รายการบัญชี", "fin.th.typeNote": "ประเภท / หมายเหตุ", "fin.th.direction": "ทิศทาง",
+"fin.th.method": "วิธี",
+"me.heroT": "รูป Hero", "me.heroEmpty": "ยังไม่ได้ตั้งรูป Hero (နမူနာ)", "me.heroPh": "https://… ลิงก์รูปภาพ",
+"me.promoT": "ช่องโปรโมชัน (สูงสุด 8 ช่อง)", "me.promoEmpty": "ยังไม่มีโปรโมชัน (နမူနာ)",
+"me.featT": "ร้านแนะนำ", "me.featEmpty": "ยังไม่มีร้านแนะนำ (နမူနာ)",
+"me.note": "แก้ไขสื่อได้จากหน้า Settings ผ่าน promo_slots / featured_shop_ids เช่นกัน ไฟล์รูปต้องส่งผ่านแชต Bot เพื่อบันทึก",
+"set.types.notice": "รายการนี้ใช้ในแบบฟอร์มเพิ่มร้าน",
+"set.types.phMy": "เช่น ร้านจาน", "set.types.phEn": "เช่น Plate shop",
+"set.types.confirmDel": "ลบประเภทนี้หรือไม่ ประเภทที่ร้านกำลังใช้อยู่ลบไม่ได้",
+"set.backup.errJson": "ต้องเป็น JSON object", "set.backup.errKey": "key ที่ไม่รู้จัก: {n}",
+"us.th.user": "ผู้ใช้", "us.th.role": "บทบาท", "us.shopN": "ร้าน #{n}",
+"us.active": "ใช้งานอยู่", "us.inactive": "ปิดใช้งาน", "us.newT": "เปิดบัญชีใหม่",
+"us.f.name": "ชื่อ (Display name)", "us.f.pass": "รหัสผ่าน (อย่างน้อย 10 ตัวอักษร)",
+"us.f.shop": "เลือกร้าน (จำเป็นสำหรับ Merchant)", "us.ph.user": "เช่น shop-aung",
+"us.create": "เปิดบัญชี", "us.created": "เปิดบัญชีเรียบร้อยแล้ว",
+"au.th.actor": "ผู้ทำ", "au.th.action": "การกระทำ", "au.th.details": "รายละเอียด",
+"mo.kpi.products": "สินค้า", "mo.kpi.settled": "จ่ายแล้ว (Settled)", "mo.kpi.pending": "รอจ่าย",
+"mo.kpi.shopStatus": "สถานะร้าน", "mo.tr.total": "ทั้งหมด {n}", "mo.tr.avail": "มีสินค้า {n} รายการ",
+"mo.tr.times": "{n} ครั้ง ({c})", "mo.none": "ยังไม่มี", "mo.tr.pending": "คำสั่งซื้อที่จัดส่งแล้ว",
+"mo.notice": "เจ้าของจ่ายให้ร้านทุกครั้งที่คำสั่งซื้อเสร็จ ค่าคอมมิชชัน 0% — ไม่หักจากร้าน สกุลเงินขึ้นกับเมืองที่ร้านตั้งอยู่ (ท่าขี้เหล็ก — บาท)",
+"mprod.makeUnavail": "ทำให้ไม่มีสินค้า", "mprod.makeAvail": "ทำให้มีสินค้า",
+"po.rulesT": "กฎการชำระเงิน", "po.rulesNote": "ค่าคอมมิชชัน 0% ไรเดอร์ได้รับค่าส่งเต็มจำนวน เจ้าของจ่ายให้ร้านทุกครั้งที่คำสั่งซื้อเสร็จ สกุลเงินขึ้นกับเมืองที่ร้านตั้งอยู่ — ร้านในท่าขี้เหล็กเป็นบาท (฿) เมืองอื่นเป็นจ๊าต (Ks)", "po.settledT": "จ่ายแล้ว", "po.pendingT": "รอจ่าย",
+"po.th.note": "หมายเหตุ", "po.ownerConfirm": "เจ้าของจะยืนยัน", "po.curHint": "สกุลเงินที่แนะนำ",
+"po.curThb": "(ท่าขี้เหล็ก — บาท)", "po.curMmk": "(จ๊าต)", "po.curNone": "ยังไม่มี — จะกำหนดในรายการแรก"
+},
+en: {
+"nav.overview": "Overview", "nav.orders": "Orders",
+"nav.reviews": "Reviews", "nav.shops": "Shops", "nav.products": "Products",
+"nav.customers": "Customers", "nav.delivery": "Delivery", "nav.riders": "Riders",
+"nav.finance": "Finance", "nav.media": "Media", "nav.settings": "Settings",
+"nav.users": "Admins", "nav.audit": "Audit Log", "nav.moverview": "My Shop",
+"nav.morders": "My Orders", "nav.mproducts": "My Products",
+"nav.payouts": "Payouts", "nav.prefs": "My Preferences", "nav.account": "Account",
+"top.searchPh": "Search… (order / shop / customer)", "top.logout": "Log out",
+"top.apiOk": "API: working", "top.apiFail": "API: cannot check",
+"top.themeToDark": "Switch to dark", "top.themeToLight": "Switch to light",
+"top.lang": "Language",
+"login.subtitle": "Management Dashboard",
+"login.errToken": "No token received", "login.err401": "Wrong username / password.",
+"meta.title": "Safe Deli — Management Dashboard",
+"login.user": "Username", "login.pass": "Password",
+"login.btn": "Log in",
+"login.note": "The session token is kept in browser memory only. Closing the page logs you out automatically.",
+"common.save": "Save", "common.cancel": "Cancel", "common.loading": "Loading…",
+"common.errTitle": "Could not open", "common.empty": "No data yet", "common.saved": "Saved.",
+"v.overview.t": "Dashboard",
+"v.overview.s": "Hello. See how Safe Deli is doing today.",
+"v.orders.t": "Customer Orders",
+"v.orders.s": "Customer orders.",
+"v.reviews.t": "Reviews",
+"v.reviews.s": "Customer reviews. They show in the app only after approval — no fake reviews.",
+"v.shops.t": "Shops",
+"v.shops.s": "Approved shops. The NEW badge marks shops approved within 7 days.",
+"v.products.t": "Products",
+"v.products.s": "Products and prices from every shop.",
+"v.customers.t": "Customers",
+"v.customers.s": "Customers from orders. Support / Operations do not see full phone numbers.",
+"v.delivery.t": "Delivery Operations",
+"v.delivery.s": "All deliveries and routes. No live map — route links and latest position only.",
+"v.riders.t": "Riders",
+"v.riders.s": "Rider list. The nearest rider gets the job first.",
+"v.finance.t": "Payments & Finance",
+"v.finance.s": "Money in and out. Each row shows its shop's currency (baht/Ks).",
+"v.media.t": "Media",
+"v.media.s": "Banners, hero image, promotion slots and featured shops.",
+"v.settings.t": "Settings",
+"v.settings.s": "Shop hours, shop types, banners and other settings.",
+"v.users.t": "Admin Users",
+"v.users.s": "Accounts by role. A merchant account must be linked to one shop.",
+"v.audit.t": "Audit Log",
+"v.audit.s": "Who did what, and when. The log cannot be edited or deleted.",
+"v.moverview.t": "My Shop",
+"v.moverview.s": "Hello. Here is how the shop is doing.",
+"v.morders.t": "My Orders",
+"v.morders.s": "Only my shop's orders are shown.",
+"v.mproducts.t": "My Products",
+"v.mproducts.s": "Only my shop's products. You can change prices and availability.",
+"v.payouts.t": "Payouts",
+"v.payouts.s": "Money already paid to the shop, and orders still waiting to be paid.",
+"v.prefs.t": "My Preferences",
+"v.prefs.s": "Language, light/dark, sound, auto-refresh and page size — saved on this device only.",
+"set.lang.t": "Language",
+"set.lang.h": "Changes right away. Saved on this device only.",
+"set.lang.saved": "Language saved.",
+"set.theme.t": "Appearance — Theme",
+"set.theme.light": "Light", "set.theme.dark": "Dark",
+"set.notif.t": "Notifications",
+"set.notif.sound": "Play a sound for new orders",
+"set.notif.test": "Test sound",
+"set.notif.desktop": "Show desktop notifications",
+"set.notif.granted": "Allowed.",
+"set.notif.denied": "Not allowed — enable it in the browser settings.",
+"set.notif.default": "Not asked yet — you will be asked when you enable it.",
+"set.refresh.t": "Auto-refresh",
+"set.refresh.h": "Never refreshes while you are typing, or on the Settings / Admin / Media pages.",
+"set.refresh.off": "Off",
+"set.pagesize.t": "Rows per page",
+"set.shop.openNow": "Open", "set.shop.closedNow": "Closed",
+"set.shop.modeIs": "Mode", "set.shop.hoursIs": "By hours",
+"set.shop.openBtn": "Open again", "set.shop.closeBtn": "Close for now",
+"set.shop.toggleFail": "Could not change",
+"set.backup.t": "Settings backup",
+"set.backup.h": "Export saves all settings as a JSON file. Import puts the settings from a file back, one key at a time.",
+"set.backup.export": "Export — download JSON",
+"set.backup.import": "Import — choose a JSON file",
+"set.hours.t": "Shop Hours",
+"set.hours.open": "Opening time (HH:MM)", "set.hours.close": "Closing time (HH:MM)",
+"set.hours.ownerOnly": "Only the owner can change this.",
+"set.hours.saved": "Saved. (Does not affect the bot yet — see the warning above.)",
+"set.kv.t": "Current settings",
+"set.facts.t": "Business Facts",
+"set.facts.phone": "Phone number (Viber)", "set.facts.telegram": "Telegram",
+"set.facts.fee": "Minimum delivery fee (baht)",
+"set.facts.warn": "Warning: the phone / Telegram / minimum fee changed here does not affect the bot yet — the bot's facts live in a separate file. Linking them is follow-up work.",
+"set.types.t": "Shop Types",
+"set.types.h": "The owner can add, rename, or enable/disable shop types. Every type is its own flat entry — no groups. A type in use by a shop cannot be deleted — only disabled.",
+"set.types.addT": "Add a new type",
+"set.types.nameMy": "Myanmar name *", "set.types.nameEn": "English name",
+"set.types.editT": "Edit type — ",
+"set.types.editType": "Edit type", "set.types.disable": "Disable",
+"set.types.enable": "Enable", "set.types.del": "Delete",
+"set.d6": "Warning (D6): the hours changed here do not affect the bot yet — the owner sets the bot's hours with /sethours. Linking dashboard and bot hours is follow-up work.",
+"st.pending": "Pending", "st.new": "New", "st.confirmed": "Confirmed",
+"st.shop_confirmed": "Accepted by shop", "st.shop_rejected": "Rejected by shop",
+"st.preparing": "Preparing", "st.delivering": "Delivering", "st.delivered": "Delivered",
+"st.cancelled": "Cancelled", "st.failed": "Failed", "st.completed": "Completed",
+"st.processing": "Processing", "st.shipped": "Shipped", "st.active": "Active",
+"st.approved": "Approved", "st.suspended": "Suspended", "st.rejected": "Rejected",
+"st.verified": "Verified", "st.assigned": "Assigned", "st.accepted": "Accepted",
+"st.picked_up": "Picked up", "st.created": "Created",
+"common.err": "Something went wrong", "common.ordersN": "Orders {n}",
+"common.roleVerified": "Your role is confirmed by the server.",
+"ov.kpi.incomeToday": "Income today", "ov.kpi.incomeMonth": "This month {v}",
+"ov.kpi.noFinance": "Finance not allowed",
+"ov.kpi.ordersToday": "Orders today", "ov.kpi.ordersTotal": "Total {v}",
+"ov.kpi.shops": "Shops", "ov.kpi.shopsOpen": "{n} shops open",
+"ov.kpi.ordersPending": "Pending orders",
+"ov.kpi.riders": "Riders", "ov.kpi.ridersDuty": "{n} on duty",
+"ov.donut.shopActive": "Open shops", "ov.donut.shopPending": "Pending approval",
+"ov.donut.shopClosed": "Closed now", "ov.donut.shopTotal": "Total shops",
+"ov.donut.delInProgress": "Delivering / assigned", "ov.donut.delCreated": "Waiting",
+"ov.donut.delFailed": "Failed / cancelled", "ov.donut.delTotal": "Total deliveries",
+"ov.sales": "Sales Overview (7 days)",
+"ov.salesNote": "Income counts confirmed orders only.",
+"ov.salesCur": "Currency: {v}",
+"ov.latestOrders": "Latest orders",
+"ov.th.order": "Order", "ov.th.customer": "Customer", "ov.th.status": "Status",
+"ov.viewAll": "View all", "ov.viewOrders": "View orders",
+"ov.topShops": "Top shops", "ov.topLatest": "Latest {n} orders",
+"ov.topNote": "Counted from the latest 5 orders.",
+"ov.shopStatus": "Shop overview", "ov.deliveries": "Deliveries", "ov.viewDeliveries": "View deliveries",
+"ov.system": "System overview",
+"ov.sys.netToday": "Net today", "ov.sys.netMonth": "Net this month",
+"ov.sys.ordersPending": "Pending orders",
+"ov.sys.api": "API status", "ov.sys.working": "Working (as of {v})",
+"ov.countN": "{n}", "ov.notices": "Notices",
+"ov.notice.test": "Test (TEST) orders are excluded from the overview. Tick \"Show test orders\" on the Orders page to see them.",
+"ov.notice.hours": "The bot's open/close hours cannot be changed from the dashboard yet — coming as follow-up work (D6).",
+"ord.next.confirmed": "Confirm", "ord.next.preparing": "Start preparing", "ord.next.delivering": "Start delivery", "ord.next.delivered": "Confirm delivered", "ord.next.cancelled": "Cancel",
+"ord.viewOnly": "View only", "ord.showTest": "Show test orders (TEST)", "ord.csv": "Export CSV",
+"ord.th.shopItem": "Shop / Item", "ord.th.fee": "Delivery fee", "ord.th.action": "Action",
+"ord.prev": "← Previous", "ord.next": "Next →", "ord.pageOf": "Page {p} / {n} total",
+"ord.confirmChange": "Change this order to \"{s}\"?",
+"common.approve": "Approve", "common.reject": "Reject", "common.rejectReason": "Reason for rejection (required):", "common.all": "All",
+"app.optional": "(optional)",
+"app.th.shop": "Shop", "app.th.decision": "Decision",
+"rev.th.review": "Review", "rev.filterStatus": "Status:", "rev.decided": "Already decided", "rev.confirmApprove": "Approve this review and show it in the app?",
+"rev.notice": "Each review must be approved. Only then will it show as stars and a comment on the shop's review tab.",
+"sh.noPin": "No pin", "sh.th.contact": "Contact / Location", "sh.th.since": "Opened",
+"sh.formAdd": "Add new shop", "sh.formEdit": "Edit shop — {n}",
+"sh.edit": "Edit shop",
+"sh.f.name": "Shop name", "sh.f.type": "Type", "sh.f.address": "Shop address", "sh.f.phone": "Phone number",
+"sh.f.lat": "GPS Latitude", "sh.f.lon": "GPS Longitude", "sh.f.open": "Opening time", "sh.f.close": "Closing time",
+"sh.f.maps": "Google Maps link", "sh.f.photo": "Shop photo", "sh.f.photos": "Shop photos",
+"sh.f.interior": "Interior photos", "sh.f.menu": "Menu", "sh.f.video": "Shop video (1 minute)",
+"sh.sec.location": "Location", "sh.sec.hours": "Opening hours", "sh.sec.media": "Photos, video & menu",
+"sh.sec.mediaSub": "(upload a photo or video from your phone)",
+"sh.up.photoWhere": "Picture shown in the app",
+"sh.up.hint": "Tap to upload a photo from your phone — it will appear below.",
+"sh.up.videoHint": "Tap to upload a 1-minute video from your phone — it will appear below.",
+"sh.up.uploading": "Uploading…",
+"sh.up.done": "Uploaded.",
+"sh.up.tooBig": "That photo is too big — please pick one under 10 MB.",
+"sh.up.videoTooBig": "That video is too big — please pick one under 100 MB.",
+"sh.up.badType": "That file is not a photo — please pick a JPG, PNG or WebP picture.",
+"sh.up.badVideo": "That file is not a video — please pick an MP4, WebM or MOV video.",
+"sh.up.failed": "The upload did not work — please try again.",
+"sh.ph.name": "e.g. Wankaung Fruit Shop", "sh.ph.phone": "e.g. 09123456789", "sh.ph.lat": "e.g. 20.45", "sh.ph.lon": "e.g. 99.88",
+"sh.ph.link": "https://…", "sh.ph.links": "one link per line",
+"sh.add": "Add", "sh.saving": "Saving…", "sh.gpsHint": "Without a GPS pin the shop will not appear in the Mini App.",
+"sh.mapsHint": "If the link has GPS coordinates, the pin is filled in automatically.",
+"sh.confirmSuspend": "Remove this shop from the app? Customers will not see it.",
+"sh.suspend": "Remove from app", "sh.activate": "Show in app again",
+"sh.err.name": "Please enter the shop name.", "sh.err.category": "The type is not right — please choose again.",
+"sh.err.address": "Please enter the shop address.", "sh.err.phone": "Please enter the phone number.",
+"sh.err.gps": "The GPS numbers are wrong — please check them.", "sh.err.time": "The opening/closing time is wrong — please re-pick AM/PM.",
+"sh.err.sameTime": "Opening and closing times are the same — please change one.",
+"sh.err.url": "The link is wrong — please paste a real link.",
+"sh.err.notFound": "This shop is gone — please reopen this page.", "sh.err.nothing": "Nothing changed.",
+"sh.err.generic": "Something went wrong — please try again.",
+"prod.th.product": "Product", "prod.th.price": "Price", "prod.available": "Available", "prod.unavailable": "Unavailable", "prod.add": "Add new product",
+"prod.f.name": "Product name", "prod.f.currency": "Currency", "prod.f.desc": "Description",
+"prod.f.group": "Group", "prod.f.photo": "Photo", "prod.ph.group": "Food",
+"prod.cur.thb": "THB — Baht (Tachileik)", "prod.cur.mmk": "MMK — Kyat (other cities)",
+"cu.th.phone": "Phone", "cu.th.orders": "Orders", "cu.th.last": "Last shop / date",
+"cu.totalN": "Total: {n}",
+"dl.rider": "Rider: {n}", "dl.route": "View route ↗", "dl.lastPos": "Last location",
+"dl.ageSec": "{n}s ago", "dl.noLive": "No live location yet",
+"dl.statusT": "Delivery Status", "dl.noteT": "Important",
+"dl.noteRider": "Riders can't easily check the website while riding — job cards are sent in the Bot chat.",
+"dl.noteFee": "Riders keep the full delivery fee (Safe Deli takes no cut). Right now the rider is the owner himself.",
+"dl.th.statusRider": "Status / rider", "dl.th.routePos": "Route / location", "dl.th.date": "Date",
+"ri.onDuty": "On duty", "ri.offDuty": "Off duty", "ri.ageMin": "{n} min ago",
+"ri.noPos": "No location yet",
+"ri.notice": "Right now the rider is the owner himself (Min). Rider #1 Min Min is registered.",
+"ri.th.rider": "Rider", "ri.th.lastPos": "Last location",
+"fin.in": "Income", "fin.out": "Expense",
+"fin.d3": "Payment rules (D3 — confirmed by the owner): 0% commission (free) — nothing taken from shops. Riders keep the full delivery fee. Shops are paid after each completed order (manual settlement). Currency follows the shop's town — Tachileik shops in baht (฿), other towns in kyat (Ks).",
+"fin.netToday": "Net today", "fin.expenseToday": "Expense today", "fin.ordersTotal": "Total orders", "fin.todayN": "Today: {n}",
+"fin.shopsApproved": "{n} shops approved", "fin.payT": "Payment Methods",
+"fin.fromListed": "From the entries shown",
+"fin.donutNote": "The donut is calculated from the 100 entries above, split by Cash / Card / Online.",
+"fin.addT": "Add Entry (Owner / Finance)",
+"fin.f.amount": "Amount", "fin.f.method": "Payment method",
+"fin.f.shop": "Shop ID (shop_id, leave blank if none)",
+"fin.f.note": "Note (if this is a correction, the reason must be written)",
+"fin.curThb": "THB — Baht (Tachileik)", "fin.curMmk": "MMK — Kyat (other towns)",
+"fin.save": "Save entry",
+"fin.appendNote": "Entries are append-only — they can't be edited; if wrong, add a new entry to correct it.",
+"fin.ledgerT": "Ledger", "fin.th.typeNote": "Type / note", "fin.th.direction": "Direction",
+"fin.th.method": "Method",
+"me.heroT": "Hero Image", "me.heroEmpty": "No hero image set yet (နမူနာ)", "me.heroPh": "https://… image link",
+"me.promoT": "Promotion Slots (max 8)", "me.promoEmpty": "No promotions yet (နမူနာ)",
+"me.featT": "Featured Shops", "me.featEmpty": "No featured shops yet (နမူနာ)",
+"me.note": "Media can also be edited from the Settings page via promo_slots / featured_shop_ids. Image files must be sent via the Bot chat to be saved.",
+"set.types.notice": "This list is used by the add-shop form.",
+"set.types.phMy": "e.g. Plate shop", "set.types.phEn": "e.g. Plate shop",
+"set.types.confirmDel": "Delete this type? A type in use by a shop cannot be deleted.",
+"set.backup.errJson": "Must be a JSON object.", "set.backup.errKey": "Unknown key: {n}",
+"us.th.user": "User", "us.th.role": "Role", "us.shopN": "Shop #{n}",
+"us.active": "Active", "us.inactive": "Inactive", "us.newT": "Create New Account",
+"us.f.name": "Name (Display name)", "us.f.pass": "Password (at least 10 characters)",
+"us.f.shop": "Choose a shop (required for Merchant)", "us.ph.user": "e.g. shop-aung",
+"us.create": "Create account", "us.created": "Account created.",
+"au.th.actor": "Actor", "au.th.action": "Action", "au.th.details": "Details",
+"mo.kpi.products": "Products", "mo.kpi.settled": "Settled", "mo.kpi.pending": "Pending payout",
+"mo.kpi.shopStatus": "Shop Status", "mo.tr.total": "Total {n}", "mo.tr.avail": "{n} available",
+"mo.tr.times": "{n} times ({c})", "mo.none": "None yet", "mo.tr.pending": "Delivered orders",
+"mo.notice": "The owner pays the shop after each completed order. 0% commission — nothing taken from the shop. Currency follows the shop's town (Tachileik — baht).",
+"mprod.makeUnavail": "Mark unavailable", "mprod.makeAvail": "Mark available",
+"po.rulesT": "Payment Rules", "po.rulesNote": "Commission is 0% for now. The rider takes the full delivery fee. The owner settles the shop after each completed order. Currency follows the shop's city: Tachileik shops in THB, shops from other cities in MMK.", "po.settledT": "Settled", "po.pendingT": "Pending",
+"po.th.note": "Note", "po.ownerConfirm": "Owner to confirm", "po.curHint": "Currency hint",
+"po.curThb": "(Tachileik — baht)", "po.curMmk": "(kyat)", "po.curNone": "Not set yet — it will be set on the first entry"
+},
+zh: {
+"nav.overview": "总览", "nav.orders": "订单",
+"nav.reviews": "评价", "nav.shops": "店铺", "nav.products": "商品",
+"nav.customers": "顾客", "nav.delivery": "配送", "nav.riders": "骑手",
+"nav.finance": "财务", "nav.media": "媒体", "nav.settings": "设置",
+"nav.users": "管理员", "nav.audit": "日志", "nav.moverview": "我的店铺",
+"nav.morders": "我的订单", "nav.mproducts": "我的商品",
+"nav.payouts": "结算", "nav.prefs": "我的偏好", "nav.account": "帐户",
+"top.searchPh": "搜索…（订单 / 店铺 / 顾客）", "top.logout": "退出",
+"top.apiOk": "API：正常", "top.apiFail": "API：无法检查",
+"top.themeToDark": "切换到深色", "top.themeToLight": "切换到浅色",
+"top.lang": "语言",
+"login.subtitle": "管理后台",
+"login.errToken": "未收到 Token", "login.err401": "用户名或密码错误。",
+"meta.title": "Safe Deli — 管理面板",
+"login.user": "用户名", "login.pass": "密码",
+"login.btn": "登录",
+"login.note": "会话令牌仅保存在浏览器内存中，关闭页面会自动退出。",
+"common.save": "保存", "common.cancel": "取消", "common.loading": "加载中…",
+"common.errTitle": "无法打开", "common.empty": "暂无数据", "common.saved": "已保存。",
+"v.overview.t": "总览",
+"v.overview.s": "你好，在此查看 Safe Deli 今天的情况。",
+"v.orders.t": "订单",
+"v.orders.s": "顾客订单。",
+"v.reviews.t": "评价",
+"v.reviews.s": "顾客评价，仅批准后才在应用中显示，没有虚假评价。",
+"v.shops.t": "店铺",
+"v.shops.s": "已批准的店铺，NEW 标志表示 7 天内批准的店铺。",
+"v.products.t": "商品",
+"v.products.s": "各店铺的商品和价格。",
+"v.customers.t": "顾客",
+"v.customers.s": "根据订单生成的顾客列表，Support / Operations 看不到完整电话号码。",
+"v.delivery.t": "配送",
+"v.delivery.s": "所有配送和路线，没有实时地图，只有路线链接和最新位置。",
+"v.riders.t": "骑手",
+"v.riders.s": "骑手列表，最近的骑手优先接单。",
+"v.finance.t": "财务",
+"v.finance.s": "收支账目，每行显示该店铺的货币（泰铢/缅元）。",
+"v.media.t": "媒体",
+"v.media.s": "横幅、主图、推广位和推荐店铺。",
+"v.settings.t": "设置",
+"v.settings.s": "店铺营业时间、店铺类型、横幅和其他设置。",
+"v.users.t": "管理员",
+"v.users.s": "按角色划分的帐户，商家帐户必须绑定一家店铺。",
+"v.audit.t": "日志",
+"v.audit.s": "谁在何时做了什么，日志无法编辑或删除。",
+"v.moverview.t": "我的店铺",
+"v.moverview.s": "你好，这是店铺的情况。",
+"v.morders.t": "我的订单",
+"v.morders.s": "仅显示我店铺的订单。",
+"v.mproducts.t": "我的商品",
+"v.mproducts.s": "仅显示我店铺的商品，可以修改价格和上下架状态。",
+"v.payouts.t": "结算",
+"v.payouts.s": "已支付给店铺的款项和待结算的订单。",
+"v.prefs.t": "我的偏好",
+"v.prefs.s": "语言、浅色/深色、声音、自动刷新和页面大小，仅保存在本设备上。",
+"set.lang.t": "语言 — Language",
+"set.lang.h": "选择后立即生效，仅保存在本设备上。",
+"set.lang.saved": "语言已保存。",
+"set.theme.t": "外观 — Theme",
+"set.theme.light": "浅色", "set.theme.dark": "深色",
+"set.notif.t": "通知 — Notifications",
+"set.notif.sound": "新订单提示音",
+"set.notif.test": "测试声音",
+"set.notif.desktop": "显示桌面通知",
+"set.notif.granted": "已允许。",
+"set.notif.denied": "未允许，请在浏览器设置中开启。",
+"set.notif.default": "尚未询问，开启时会询问。",
+"set.refresh.t": "自动刷新 — Auto-refresh",
+"set.refresh.h": "正在输入时，或在设置/管理员/媒体页面时不会刷新。",
+"set.refresh.off": "关闭",
+"set.pagesize.t": "每页行数 — Rows per page",
+"set.shop.openNow": "营业中", "set.shop.closedNow": "已打烊",
+"set.shop.modeIs": "模式", "set.shop.hoursIs": "按时间",
+"set.shop.openBtn": "重新开店", "set.shop.closeBtn": "暂时关闭",
+"set.shop.toggleFail": "无法更改",
+"set.backup.t": "设置备份 — Settings backup",
+"set.backup.h": "导出将所有设置保存为 JSON 文件，导入会逐项恢复文件中的设置。",
+"set.backup.export": "导出 JSON",
+"set.backup.import": "导入 JSON 文件",
+"set.hours.t": "营业时间 — Shop Hours",
+"set.hours.open": "开店时间 (HH:MM)", "set.hours.close": "关店时间 (HH:MM)",
+"set.hours.ownerOnly": "仅店主可以修改。",
+"set.hours.saved": "已保存。（尚未影响 Bot，见上方提示。）",
+"set.kv.t": "当前设置",
+"set.facts.t": "业务信息 — Business Facts",
+"set.facts.phone": "电话号码 (Viber)", "set.facts.telegram": "Telegram",
+"set.facts.fee": "最低配送费（泰铢）",
+"set.facts.warn": "提示：在此修改的电话 / Telegram / 最低配送费尚未影响 Bot，Bot 的信息在单独的文件中，关联是后续工作。",
+"set.types.t": "店铺类型 — Shop Types",
+"set.types.h": "店主可以添加、重命名或启用/停用店铺类型，每个类型都是独立的条目，没有分组。正在被店铺使用的类型无法删除，只能停用。",
+"set.types.addT": "添加新类型",
+"set.types.nameMy": "缅甸语名称 *", "set.types.nameEn": "英文名称",
+"set.types.editT": "编辑类型 — ",
+"set.types.editType": "编辑类型", "set.types.disable": "停用",
+"set.types.enable": "启用", "set.types.del": "删除",
+"set.d6": "提示 (D6)：在此修改的营业时间尚未影响 Bot，店主需用 /sethours 设置 Bot 的时间，关联是后续工作。",
+"st.pending": "待处理", "st.new": "新建", "st.confirmed": "已确认",
+"st.shop_confirmed": "商家已接单", "st.shop_rejected": "商家已拒绝",
+"st.preparing": "准备中", "st.delivering": "配送中", "st.delivered": "已送达",
+"st.cancelled": "已取消", "st.failed": "失败", "st.completed": "已完成",
+"st.processing": "处理中", "st.shipped": "已发货", "st.active": "启用中",
+"st.approved": "已批准", "st.suspended": "已暂停", "st.rejected": "已拒绝",
+"st.verified": "已验证", "st.assigned": "已分配", "st.accepted": "已接受",
+"st.picked_up": "已取货", "st.created": "已创建",
+"common.err": "出错了", "common.ordersN": "订单 {n}",
+"common.roleVerified": "您的角色已由服务器确认。",
+"ov.kpi.incomeToday": "今日收入", "ov.kpi.incomeMonth": "本月 {v}",
+"ov.kpi.noFinance": "无权查看财务",
+"ov.kpi.ordersToday": "今日订单", "ov.kpi.ordersTotal": "总计 {v}",
+"ov.kpi.shops": "商家", "ov.kpi.shopsOpen": "{n} 家营业中",
+"ov.kpi.ordersPending": "待处理订单",
+"ov.kpi.riders": "骑手", "ov.kpi.ridersDuty": "{n} 人在岗",
+"ov.donut.shopActive": "营业中商家", "ov.donut.shopPending": "待审核",
+"ov.donut.shopClosed": "已打烊", "ov.donut.shopTotal": "商家总数",
+"ov.donut.delInProgress": "配送中 / 已分配", "ov.donut.delCreated": "等待中",
+"ov.donut.delFailed": "失败 / 已取消", "ov.donut.delTotal": "配送总数",
+"ov.sales": "销售额（7 天）",
+"ov.salesNote": "收入仅统计已确认（confirmed）的订单。",
+"ov.salesCur": "货币：{v}",
+"ov.latestOrders": "最新订单",
+"ov.th.order": "订单", "ov.th.customer": "客户", "ov.th.status": "状态",
+"ov.viewAll": "查看全部", "ov.viewOrders": "查看订单",
+"ov.topShops": "热门商家", "ov.topLatest": "最新 {n} 个订单",
+"ov.topNote": "按最新 5 个订单统计。",
+"ov.shopStatus": "商家概况", "ov.deliveries": "配送", "ov.viewDeliveries": "查看配送",
+"ov.system": "系统概况",
+"ov.sys.netToday": "今日净额", "ov.sys.netMonth": "本月净额",
+"ov.sys.ordersPending": "待处理订单",
+"ov.sys.api": "API 状态", "ov.sys.working": "运行中（截至 {v}）",
+"ov.countN": "{n} 个", "ov.notices": "通知",
+"ov.notice.test": "测试（TEST）订单不计入总览。如需查看，请在订单页勾选“显示测试订单”。",
+"ov.notice.hours": "尚无法从控制台修改 Bot 的营业时间——后续工作（D6）会处理。",
+"ord.next.confirmed": "确认", "ord.next.preparing": "开始准备", "ord.next.delivering": "开始配送", "ord.next.delivered": "确认已送达", "ord.next.cancelled": "取消",
+"ord.viewOnly": "仅查看", "ord.showTest": "显示测试订单 (TEST)", "ord.csv": "导出 CSV",
+"ord.th.shopItem": "店铺 / 商品", "ord.th.fee": "配送费", "ord.th.action": "操作",
+"ord.prev": "← 上一页", "ord.next": "下一页 →", "ord.pageOf": "第 {p} 页 / 共 {n} 条",
+"ord.confirmChange": "将此订单改为“{s}”吗？",
+"common.approve": "批准", "common.reject": "拒绝", "common.rejectReason": "拒绝原因（必填）：", "common.all": "全部",
+"app.optional": "（可选）",
+"app.th.shop": "店铺", "app.th.decision": "决定",
+"rev.th.review": "评价", "rev.filterStatus": "状态：", "rev.decided": "已决定", "rev.confirmApprove": "批准这条评价并在应用中显示吗？",
+"rev.notice": "每条评价都须审核通过后，才会作为星级和评论显示在店铺的评价标签页中。",
+"sh.noPin": "无定位", "sh.th.contact": "联系方式 / 位置", "sh.th.since": "开店日期",
+"sh.formAdd": "添加新店铺", "sh.formEdit": "编辑店铺 — {n}",
+"sh.edit": "编辑店铺",
+"sh.f.name": "店铺名称", "sh.f.type": "类型", "sh.f.address": "店铺地址", "sh.f.phone": "电话号码",
+"sh.f.lat": "GPS 纬度", "sh.f.lon": "GPS 经度", "sh.f.open": "营业时间", "sh.f.close": "打烊时间",
+"sh.f.maps": "Google Maps 链接", "sh.f.photo": "店铺照片", "sh.f.photos": "店铺照片（多张）",
+"sh.f.interior": "店内照片", "sh.f.menu": "菜单", "sh.f.video": "店铺视频（1 分钟）",
+"sh.sec.location": "位置", "sh.sec.hours": "营业时间", "sh.sec.media": "照片、视频、菜单",
+"sh.sec.mediaSub": "（从手机上传照片或视频）",
+"sh.up.photoWhere": "在应用中显示的图片",
+"sh.up.hint": "点按从手机上传照片——照片会显示在下方。",
+"sh.up.videoHint": "点按从手机上传 1 分钟视频——视频会显示在下方。",
+"sh.up.uploading": "正在上传…",
+"sh.up.done": "已上传。",
+"sh.up.tooBig": "照片太大了——请选择小于 10 MB 的照片。",
+"sh.up.videoTooBig": "视频太大了——请选择小于 100 MB 的视频。",
+"sh.up.badType": "该文件不是照片——请选择 JPG、PNG 或 WebP 图片。",
+"sh.up.badVideo": "该文件不是视频——请选择 MP4、WebM 或 MOV 视频。",
+"sh.up.failed": "上传失败——请重试。",
+"sh.ph.name": "例如：旺康水果店", "sh.ph.phone": "例如 09123456789", "sh.ph.lat": "例如 20.45", "sh.ph.lon": "例如 99.88",
+"sh.ph.link": "https://…", "sh.ph.links": "每行一个链接",
+"sh.add": "添加", "sh.saving": "正在保存…", "sh.gpsHint": "未添加 GPS 定位时，店铺不会在 Mini App 中显示。",
+"sh.mapsHint": "如果链接包含 GPS 坐标，将自动填写定位。",
+"sh.confirmSuspend": "要将这家店铺从应用中移除吗？顾客将看不到它。",
+"sh.suspend": "从应用中移除", "sh.activate": "重新在应用中显示",
+"sh.err.name": "请输入店铺名称。", "sh.err.category": "类型不正确——请重新选择。",
+"sh.err.address": "请输入店铺地址。", "sh.err.phone": "请输入电话号码。",
+"sh.err.gps": "GPS 数字不正确——请检查。", "sh.err.time": "营业时间不正确——请重新选择 AM/PM。",
+"sh.err.sameTime": "营业时间和打烊时间相同——请更改其中一个。",
+"sh.err.url": "链接不正确——请粘贴真实链接。",
+"sh.err.notFound": "该店铺已不存在——请重新打开此页面。", "sh.err.nothing": "没有任何更改。",
+"sh.err.generic": "出了点问题——请重试。",
+"prod.th.product": "商品", "prod.th.price": "价格", "prod.available": "有货", "prod.unavailable": "无货", "prod.add": "添加新商品",
+"prod.f.name": "商品名称", "prod.f.currency": "货币", "prod.f.desc": "描述",
+"prod.f.group": "分组", "prod.f.photo": "照片", "prod.ph.group": "Food",
+"prod.cur.thb": "THB — 泰铢（大其力）", "prod.cur.mmk": "MMK — 缅元（其他城市）",
+"cu.th.phone": "电话", "cu.th.orders": "订单数", "cu.th.last": "最近店铺 / 日期",
+"cu.totalN": "共 {n} 人",
+"dl.rider": "骑手：{n}", "dl.route": "查看路线 ↗", "dl.lastPos": "最后位置",
+"dl.ageSec": "{n} 秒前", "dl.noLive": "暂无实时位置",
+"dl.statusT": "配送状态", "dl.noteT": "重要提示",
+"dl.noteRider": "骑手骑车时不方便查看网站——工作卡会发到 Bot 聊天中。",
+"dl.noteFee": "骑手可获得全部配送费（Safe Deli 不抽成）。目前骑手就是店主本人。",
+"dl.th.statusRider": "状态 / 骑手", "dl.th.routePos": "路线 / 位置", "dl.th.date": "日期",
+"ri.onDuty": "值班中", "ri.offDuty": "休息中", "ri.ageMin": "{n} 分钟前",
+"ri.noPos": "暂无位置",
+"ri.notice": "目前骑手就是店主本人 (Min)。已登记 Rider #1 Min Min。",
+"ri.th.rider": "骑手", "ri.th.lastPos": "最后位置",
+"fin.in": "收入", "fin.out": "支出",
+"fin.d3": "付款规则（D3——店主已确认）：佣金 0%（免费）——不从店铺抽成。骑手获得全部配送费。每完成一单即向店铺结算（手动结算）。货币按店铺所在城市——大其力店铺用泰铢 (฿)，其他城市用缅元 (Ks)。",
+"fin.netToday": "今日净额", "fin.expenseToday": "今日支出", "fin.ordersTotal": "订单总数", "fin.todayN": "今日 {n} 单",
+"fin.shopsApproved": "已批准 {n} 家", "fin.payT": "付款方式",
+"fin.fromListed": "按所列记录统计",
+"fin.donutNote": "环形图按上方 100 条记录计算，按 Cash / Card / Online 分类。",
+"fin.addT": "添加记录（Owner / Finance）",
+"fin.f.amount": "金额", "fin.f.method": "付款方式",
+"fin.f.shop": "店铺编号（shop_id，没有请留空）",
+"fin.f.note": "备注（如果是更正，必须写明原因）",
+"fin.curThb": "THB — 泰铢（大其力）", "fin.curMmk": "MMK — 缅元（其他城市）",
+"fin.save": "保存记录",
+"fin.appendNote": "记录为仅追加（append-only）——无法修改；如有错误，请新增一条记录来更正。",
+"fin.ledgerT": "账目", "fin.th.typeNote": "类型 / 备注", "fin.th.direction": "方向",
+"fin.th.method": "方式",
+"me.heroT": "主图", "me.heroEmpty": "尚未设置主图 (နမူနာ)", "me.heroPh": "https://… 图片链接",
+"me.promoT": "推广位（最多 8 个）", "me.promoEmpty": "暂无推广 (နမူနာ)",
+"me.featT": "推荐店铺", "me.featEmpty": "暂无推荐店铺 (နမူနာ)",
+"me.note": "也可以在 Settings 页面通过 promo_slots / featured_shop_ids 编辑媒体。图片文件须通过 Bot 聊天发送后保存。",
+"set.types.notice": "此列表用于添加店铺表单。",
+"set.types.phMy": "例如 盘子店", "set.types.phEn": "例如 Plate shop",
+"set.types.confirmDel": "要删除此类型吗？正在被店铺使用的类型无法删除。",
+"set.backup.errJson": "必须是 JSON 对象。", "set.backup.errKey": "未知的 key：{n}",
+"us.th.user": "用户", "us.th.role": "角色", "us.shopN": "店铺 #{n}",
+"us.active": "启用中", "us.inactive": "已停用", "us.newT": "新建账号",
+"us.f.name": "姓名 (Display name)", "us.f.pass": "密码（至少 10 个字符）",
+"us.f.shop": "选择店铺（Merchant 必填）", "us.ph.user": "例如 shop-aung",
+"us.create": "创建账号", "us.created": "账号已创建。",
+"au.th.actor": "操作人", "au.th.action": "操作", "au.th.details": "详情",
+"mo.kpi.products": "商品", "mo.kpi.settled": "已结算 (Settled)", "mo.kpi.pending": "待结算",
+"mo.kpi.shopStatus": "店铺状态", "mo.tr.total": "共 {n}", "mo.tr.avail": "{n} 件可售",
+"mo.tr.times": "{n} 次（{c}）", "mo.none": "暂无", "mo.tr.pending": "已送达订单",
+"mo.notice": "每完成一单，店主即向店铺付款。佣金 0%——不从店铺抽成。货币按店铺所在城市（大其力——泰铢）。",
+"mprod.makeUnavail": "设为无货", "mprod.makeAvail": "设为有货",
+"po.rulesT": "付款规则", "po.rulesNote": "佣金目前为 0%。骑手获得全部配送费。每完成一单，店主即向店铺结算。货币按店铺所在城市：大其力店铺用泰铢 (฿)，其他城市用缅元 (Ks)。", "po.settledT": "已结算", "po.pendingT": "待结算",
+"po.th.note": "备注", "po.ownerConfirm": "待店主确认", "po.curHint": "货币提示",
+"po.curThb": "（大其力——泰铢）", "po.curMmk": "（缅元）", "po.curNone": "尚未设置——将在第一条记录中设定"
+}
+};
+let LANG = "my";
+try { LANG = localStorage.getItem("safedeli_dash_lang") || "my"; } catch (e) {}
+if (!I18N[LANG]) LANG = "my";
+function t(k) { return (I18N[LANG] && I18N[LANG][k]) || I18N.my[k] || k; }
+let PENDING_LANG_NOTE = false;
+let BK_RESULTS = null;
+let REFRESH_TIMER = null;
+function lsGet(k, dflt) { try { return localStorage.getItem(k) || dflt; } catch (e) { return dflt; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function getTheme() { return lsGet("safedeli_dash_theme", "light") === "dark" ? "dark" : "light"; }
+function applyTheme(mode) {
+  if (mode !== "dark") mode = "light";
+  lsSet("safedeli_dash_theme", mode);
+  document.body.classList.toggle("dark", mode === "dark");
+  updateThemeBtn();
+  document.querySelectorAll("[data-theme]").forEach(b => b.classList.toggle("active", b.dataset.theme === mode));
+}
+function updateThemeBtn() { const b = document.getElementById("themeBtn"); if (!b) return; const dark = getTheme() === "dark"; b.textContent = dark ? "☀️" : "🌙"; b.title = t(dark ? "top.themeToLight" : "top.themeToDark"); b.setAttribute("aria-label", b.title); }
+function applyStaticTexts() {
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  const ls = document.getElementById("langSel"); if (ls) ls.value = LANG;
+  document.title = t("meta.title");
+  const lls = document.getElementById("loginLangSel"); if (lls) lls.value = LANG;
+  updateThemeBtn();
+}
+function applyLang(l) {
+  if (!I18N[l]) l = "my";
+  LANG = l;
+  lsSet("safedeli_dash_lang", l);
+  document.documentElement.lang = l;
+  applyStaticTexts();
+  if (ME) renderNav();
+  if (ME && CURRENT_VIEW) showView(CURRENT_VIEW);
+}
+function pageSize() { const v = parseInt(lsGet("safedeli_dash_pagesize", "25"), 10); return [10, 25, 50].includes(v) ? v : 25; }
+function soundOn() { return lsGet("safedeli_dash_sound", "0") === "1"; }
+function playBeep() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880; g.gain.value = 0.15;
+    o.start(); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    o.stop(ctx.currentTime + 0.4);
+  } catch (e) {}
+}
+function checkPendingBeep(count) {
+  try {
+    const last = parseInt(localStorage.getItem("safedeli_dash_last_pending") || "0", 10) || 0;
+    if (soundOn() && count > last) playBeep();
+    localStorage.setItem("safedeli_dash_last_pending", String(count));
+  } catch (e) {}
+}
+function refreshSeconds() { const v = parseInt(lsGet("safedeli_dash_refresh", "0"), 10); return [30, 60, 300].includes(v) ? v : 0; }
+function stopRefreshTimer() { if (REFRESH_TIMER) { clearInterval(REFRESH_TIMER); REFRESH_TIMER = null; } }
+function startRefreshTimer() {
+  stopRefreshTimer();
+  const s = refreshSeconds();
+  if (!s) return;
+  REFRESH_TIMER = setInterval(() => {
+    if (!TOKEN || !ME) return;
+    if (["settings", "users", "media"].indexOf(CURRENT_VIEW) !== -1) return;
+    const a = document.activeElement;
+    if (a && (a.tagName === "INPUT" || a.tagName === "TEXTAREA" || a.tagName === "SELECT")) return;
+    showView(CURRENT_VIEW);
+  }, s * 1000);
+}
+function typeName(ty) { if (!ty) return ""; return LANG === "my" ? (ty.name_my || ty.name_en || "") : (ty.name_en || ty.name_my || ""); }
+function perUserSettingsHtml() {
+  const theme = getTheme();
+  const sound = soundOn();
+  const desk = lsGet("safedeli_dash_desktop", "0") === "1";
+  const refresh = lsGet("safedeli_dash_refresh", "0");
+  const ps = lsGet("safedeli_dash_pagesize", "25");
+  const langRadio = (v, label) => `<label style="display:flex;gap:6px;align-items:center;font-size:14px"><input type="radio" name="prefLang" value="${v}" style="width:auto" ${LANG === v ? "checked" : ""}> ${label}</label>`;
+  const deskState = ("Notification" in window) ? (Notification.permission === "granted" ? t("set.notif.granted") : Notification.permission === "denied" ? t("set.notif.denied") : t("set.notif.default")) : t("set.notif.default");
+  return `<div class="card"><h2>${esc(t("set.lang.t"))}</h2><div class="row-flex" style="gap:16px">${langRadio("my", "မြန်မာ")}${langRadio("th", "ไทย")}${langRadio("en", "English")}${langRadio("zh", "中文")}</div><p class="muted small">${esc(t("set.lang.h"))}</p><div class="ok-text" id="langSaved"></div></div>`
+  + `<div class="card" style="margin-top:14px"><h2>☀️🌙 ${esc(t("set.theme.t"))}</h2><div class="tabs" style="margin-bottom:0"><button type="button" data-theme="light" title="${esc(t("set.theme.light"))}" aria-label="${esc(t("set.theme.light"))}" style="font-size:19px" class="${theme === "light" ? "active" : ""}">☀️</button><button type="button" data-theme="dark" title="${esc(t("set.theme.dark"))}" aria-label="${esc(t("set.theme.dark"))}" style="font-size:19px" class="${theme === "dark" ? "active" : ""}">🌙</button></div></div>`
+  + `<div class="card" style="margin-top:14px"><h2>${esc(t("set.notif.t"))}</h2>`
+  + `<label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" id="prefSound" style="width:auto" ${sound ? "checked" : ""}> ${esc(t("set.notif.sound"))}</label>`
+  + `<div style="margin-top:10px"><button class="btn ghost sm" type="button" id="prefTestSound">${esc(t("set.notif.test"))}</button></div>`
+  + `<label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-top:12px"><input type="checkbox" id="prefDesktop" style="width:auto" ${desk ? "checked" : ""}> ${esc(t("set.notif.desktop"))}</label>`
+  + `<p class="muted small" id="prefDesktopState">${esc(deskState)}</p></div>`
+  + `<div class="card" style="margin-top:14px"><h2>${esc(t("set.refresh.t"))}</h2>`
+  + `<select id="prefRefresh" style="max-width:220px"><option value="0"${refresh === "0" ? " selected" : ""}>${esc(t("set.refresh.off"))}</option><option value="30"${refresh === "30" ? " selected" : ""}>30s</option><option value="60"${refresh === "60" ? " selected" : ""}>60s</option><option value="300"${refresh === "300" ? " selected" : ""}>5 min</option></select>`
+  + `<p class="muted small">${esc(t("set.refresh.h"))}</p></div>`
+  + `<div class="card" style="margin-top:14px"><h2>${esc(t("set.pagesize.t"))}</h2>`
+  + `<select id="prefPageSize" style="max-width:220px"><option value="10"${ps === "10" ? " selected" : ""}>10</option><option value="25"${ps === "25" ? " selected" : ""}>25</option><option value="50"${ps === "50" ? " selected" : ""}>50</option></select></div>`;
+}
+function bindPerUserSettings(root) {
+  root = root || document;
+  root.querySelectorAll('input[name="prefLang"]').forEach(r => r.addEventListener("change", () => { PENDING_LANG_NOTE = true; applyLang(r.value); }));
+  root.querySelectorAll("[data-theme]").forEach(b => b.addEventListener("click", () => applyTheme(b.dataset.theme)));
+  const snd = root.querySelector("#prefSound");
+  if (snd) snd.addEventListener("change", () => lsSet("safedeli_dash_sound", snd.checked ? "1" : "0"));
+  const ts = root.querySelector("#prefTestSound");
+  if (ts) ts.addEventListener("click", () => playBeep());
+  const dk = root.querySelector("#prefDesktop");
+  if (dk) dk.addEventListener("change", async () => {
+    lsSet("safedeli_dash_desktop", dk.checked ? "1" : "0");
+    const st = root.querySelector("#prefDesktopState");
+    if ("Notification" in window && dk.checked) {
+      try { const p = await Notification.requestPermission(); if (st) st.textContent = p === "granted" ? t("set.notif.granted") : p === "denied" ? t("set.notif.denied") : t("set.notif.default"); }
+      catch (e) { if (st) st.textContent = t("set.notif.denied"); }
+    } else if (st) { st.textContent = t("set.notif.default"); }
+  });
+  const rf = root.querySelector("#prefRefresh");
+  if (rf) rf.addEventListener("change", () => { lsSet("safedeli_dash_refresh", rf.value); startRefreshTimer(); });
+  const pz = root.querySelector("#prefPageSize");
+  if (pz) pz.addEventListener("change", () => lsSet("safedeli_dash_pagesize", pz.value));
+  if (PENDING_LANG_NOTE) { const el = root.querySelector("#langSaved"); if (el) el.textContent = t("set.lang.saved"); PENDING_LANG_NOTE = false; }
+}
+const _langSel = document.getElementById("langSel");
+if (_langSel) _langSel.addEventListener("change", () => applyLang(_langSel.value));
+const _loginLangSel = document.getElementById("loginLangSel");
+if (_loginLangSel) _loginLangSel.addEventListener("change", () => applyLang(_loginLangSel.value));
+const _themeBtn = document.getElementById("themeBtn");
+if (_themeBtn) _themeBtn.addEventListener("click", () => applyTheme(getTheme() === "dark" ? "light" : "dark"));
+applyStaticTexts();
+
+
+/* ---------- navigation (role-based, cosmetic only — the server enforces) ---------- */
+const ADMIN_NAV = [
+  {id:"overview", sub:"Dashboard", roles:["owner","finance","support","operations"]},
+  {id:"orders", sub:"Orders", roles:["owner","finance","support","operations"]},
+  {id:"reviews", sub:"Reviews", roles:["owner","operations"]},
+  {id:"shops", sub:"Shops", roles:["owner","finance","support","operations"]},
+  {id:"products", sub:"Products", roles:["owner","finance","support","operations"]},
+  {id:"customers", sub:"Customers", roles:["owner","finance","support","operations"]},
+  {id:"delivery", sub:"Delivery", roles:["owner","support","operations"]},
+  {id:"riders", sub:"Riders", roles:["owner","support","operations"]},
+  {id:"finance", sub:"Payments", roles:["owner","finance"]},
+  {id:"media", sub:"Media", roles:["owner"]},
+  {id:"settings", sub:"Settings", roles:["owner","finance","support","operations"]},
+  {id:"users", sub:"Admin Users", roles:["owner"]},
+  {id:"audit", sub:"Audit Log", roles:["owner","finance","support","operations"]}
+];
+const MERCHANT_NAV = [
+  {id:"moverview", sub:"My Shop", roles:["merchant"]},
+  {id:"morders", sub:"My Orders", roles:["merchant"]},
+  {id:"mproducts", sub:"My Products", roles:["merchant"]},
+  {id:"payouts", sub:"Payouts", roles:["merchant"]},
+  {id:"prefs", sub:"Preferences", roles:["merchant"]}
+];
+const ORDER_NEXT = {pending:["confirmed","cancelled"], confirmed:["preparing","cancelled"], preparing:["delivering","cancelled"], delivering:["delivered","cancelled"]};
+
+const NAV_ICONS = {overview:"📊", orders:"🛒", reviews:"⭐", shops:"🏪", products:"📦", customers:"👥", delivery:"🚚", riders:"🛵", finance:"💰", media:"🖼️", settings:"⚙️", users:"👤", audit:"📋", moverview:"🏪", morders:"🛒", mproducts:"📦", payouts:"💸", prefs:"⚙️", account:"👤"};
+function navFor(role) { return (role === "merchant" ? MERCHANT_NAV : ADMIN_NAV).filter(n => n.roles.includes(role)); }
+function renderNav() {
+  const nav = navFor(ME.role);
+  $("#navMenu").innerHTML = nav.map(n =>
+    `<button data-view="${n.id}" class="${CURRENT_VIEW === n.id ? "active" : ""}"><span class="ic">${NAV_ICONS[n.id] || "•"}</span>${esc(t("nav." + n.id))} <span class="muted" style="font-size:11px;opacity:.7">${esc(n.sub)}</span></button>`).join("")
+    + `<div class="sect">${esc(t("nav.account"))}</div>`
+    + `<button data-view="__me"><span class="ic">👤</span>${esc(ME.display_name || ME.username)}</button>`;
+  $("#navMenu").querySelectorAll("button[data-view]").forEach(b => b.addEventListener("click", () => {
+    if (b.dataset.view === "__me") { showView("overview"); return; }
+    $("#sidebar").classList.remove("open"); showView(b.dataset.view);
+  }));
+  $("#rolePill").textContent = {owner:"Owner", finance:"Finance", support:"Support", operations:"Operations", merchant:"Merchant"}[ME.role] || ME.role;
+  $("#userName").textContent = ME.display_name || ME.username;
+  $("#sideFoot").innerHTML = `Safe Deli • ${esc(ME.shop_name || "")}<br><span class="muted" style="color:#DDD6FE">${esc(t("common.roleVerified"))}</span>`;
+}
+async function showView(id) {
+  if (!VIEWS[id]) id = "overview";
+  CURRENT_VIEW = id;
+  renderNav();
+  const v = $("#view");
+  v.innerHTML = `<div class="card"><div class="empty">${esc(t("common.loading"))}</div></div>`;
+  try { await VIEWS[id](v); }
+  catch (e) { v.innerHTML = `<div class="card"><h1>${esc(t("common.errTitle"))}</h1><p class="err-text">${esc(e.message || e)}</p></div>`; }
+  applySearchFilter();
+}
+function head(title, sub, extra) {
+  return `<div class="view-head"><div><h1>${esc(title)}</h1><div class="muted">${esc(sub || "")}</div></div><div class="spacer"></div>${extra || ""}</div>`;
+}
+
+/* ---------- Overview (Bada Vyapar structure, Safe Deli purple) ---------- */
+async function viewOverview(v) {
+  const s = await api("/api/admin/dashboard/summary");
+  checkPendingBeep(s.orders_pending || 0);
+  const fin = s.finance_visible ? s.finance : null;
+  const cur = fin ? fin.currency : "";
+  const kpi = [
+    {l:t("ov.kpi.incomeToday"), v: fin ? fmtMoney(fin.income_today, cur) : "—", t: fin ? t("ov.kpi.incomeMonth").replace("{v}", fmtMoney(fin.income_month, cur)) : t("ov.kpi.noFinance")},
+    {l:t("ov.kpi.ordersToday"), v: fmtNum(s.orders.today), t:t("ov.kpi.ordersTotal").replace("{v}", fmtNum(s.orders.total))},
+    {l:t("ov.kpi.shops"), v: fmtNum(s.shops.total), t: t("ov.kpi.shopsOpen").replace("{n}", fmtNum(s.shops.open_now))},
+    {l:t("ov.kpi.ordersPending"), v: fmtNum(s.orders_pending)},
+    {l:t("ov.kpi.riders"), v: fmtNum(s.riders.total), t: t("ov.kpi.ridersDuty").replace("{n}", fmtNum(s.riders.on_duty))}
+  ];
+  const topShops = {};
+  (s.recent_orders || []).forEach(o => { if (o.shop) topShops[o.shop] = (topShops[o.shop] || 0) + 1; });
+  const topList = Object.entries(topShops).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const shopDonut = donut([
+    {label:t("ov.donut.shopActive"), value: s.shops.active, color:"#16A34A"},
+    {label:t("ov.donut.shopPending"), value: s.shops.pending, color:"#D97706"},
+    {label:t("st.suspended"), value: s.shops.suspended || 0, color:"#DC2626"},
+    {label:t("ov.donut.shopClosed"), value: s.shops.closed_now, color:"#94A3B8"}
+  ], s.shops.total, String(s.shops.total), t("ov.donut.shopTotal"));
+  const delBy = s.deliveries.by_status || {};
+  const delTotal = s.deliveries.total || 0;
+  const delDonut = donut([
+    {label:t("st.delivered"), value: delBy.delivered || 0, color:"#16A34A"},
+    {label:t("ov.donut.delInProgress"), value: (delBy.delivering || 0) + (delBy.assigned || 0) + (delBy.accepted || 0) + (delBy.picked_up || 0), color:"#5422c8"},
+    {label:t("ov.donut.delCreated"), value: delBy.created || 0, color:"#D97706"},
+    {label:t("ov.donut.delFailed"), value: (delBy.failed || 0) + (delBy.cancelled || 0), color:"#DC2626"}
+  ], delTotal, String(delTotal), t("ov.donut.delTotal"));
+  v.innerHTML = head(t("v.overview.t"), t("v.overview.s"),
+      `<button class="btn ghost sm" onclick="showView('orders')">${esc(t("ov.viewOrders"))}</button>`)
+    + `<div class="grid kpis">${kpi.map(k => `<div class="kpi"><div class="lbl">${esc(k.l)}</div><div class="val">${esc(k.v)}</div><div class="trend">${esc(k.t)}</div></div>`).join("")}</div>`
+    + `<div class="grid cards32" style="margin-top:14px">
+        <div class="card"><h2>${esc(t("ov.sales"))}</h2>${barchart(s.chart)}<div class="muted small">${esc(t("ov.salesNote"))} ${fin ? esc(t("ov.salesCur").replace("{v}", cur)) : ""}</div></div>
+        <div class="card"><h2>${esc(t("ov.latestOrders"))}</h2>${tableOrEmpty("<th>" + esc(t("ov.th.order")) + "</th><th>" + esc(t("ov.th.customer")) + "</th><th>" + esc(t("ov.th.status")) + "</th>",
+          (s.recent_orders || []).map(o => `<tr><td><b>${esc(o.order_no)}</b><br><span class="muted small">${esc(o.shop || "")} — ${esc(o.item || "")}</span></td><td>${esc(o.customer_name || "")}<br><span class="muted small">${fmtDate(o.created_at)}</span></td><td>${statusPill(o.order_status)}</td></tr>`).join(""))}
+          <div style="margin-top:10px"><button class="btn ghost sm" onclick="showView('orders')">${esc(t("ov.viewAll"))}</button></div></div>
+      </div>`
+    + `<div class="grid cards3" style="margin-top:14px">
+        <div class="card"><h2>${esc(t("ov.topShops"))}</h2>${topList.length ? `<ol style="margin:0;padding-left:20px">${topList.map((e, i) => `<li style="padding:6px 0"><b>${esc(e[0])}</b><br><span class="muted small">${esc(t("ov.topLatest").replace("{n}", String(e[1])))}</span></li>`).join("")}</ol><div class="muted small">${esc(t("ov.topNote"))}</div>` : `<div class="empty">${esc(t("common.empty"))}</div>`}</div>
+        <div class="card"><h2>${esc(t("ov.shopStatus"))}</h2>${shopDonut}</div>
+        <div class="card"><h2>${esc(t("ov.deliveries"))}</h2>${delDonut}<div style="margin-top:10px"><button class="btn ghost sm" onclick="showView('delivery')">${esc(t("ov.viewDeliveries"))}</button></div></div>
+      </div>`
+    + `<div class="grid cards2" style="margin-top:14px">
+        <div class="card"><h2>${esc(t("ov.system"))}</h2>
+          <dl class="kv"><dt>${esc(t("ov.sys.netToday"))}</dt><dd>${fin ? fmtMoney(fin.net_today, cur) : "—"}</dd>
+          <dt>${esc(t("ov.sys.netMonth"))}</dt><dd>${fin ? fmtMoney(fin.net_month, cur) : "—"}</dd>
+          <dt>${esc(t("ov.sys.ordersPending"))}</dt><dd>${esc(t("ov.countN").replace("{n}", fmtNum(s.orders_pending)))}</dd>
+          <dt>${esc(t("ov.sys.api"))}</dt><dd>${esc(t("ov.sys.working").replace("{v}", s.as_of || ""))}</dd></dl></div>
+        <div class="card"><h2>${esc(t("ov.notices"))}</h2><div class="notice amber">${esc(t("ov.notice.test"))}</div>
+        <div class="notice blue">${esc(t("ov.notice.hours"))}</div></div>
+      </div>`;
+}
+
+/* ---------- Orders (customer orders) ---------- */
+let ORDERS_STATE = {page: 1, includeTest: false};
+async function viewOrders(v) {
+  const q = `?page=${ORDERS_STATE.page}&limit=${pageSize()}${ORDERS_STATE.includeTest ? "&include_test=1" : ""}`;
+  const d = await api("/api/admin/orders" + q);
+  checkPendingBeep((d.orders || []).filter(o => o.order_status === "pending").length);
+  const canChange = ME.role === "owner" || ME.role === "operations";
+  const rows = (d.orders || []).map(o => {
+    const next = (ORDER_NEXT[o.order_status || "pending"] || []).map(st =>
+      `<button class="btn sm ${st === "cancelled" ? "danger" : ""}" data-order="${o.id}" data-status="${st}">${esc(t("ord.next." + st))}</button>`).join(" ");
+    return `<tr><td><b>${esc(o.order_no)}</b>${o.is_test ? ' <span class="pill test">TEST</span>' : ""}<br><span class="muted small">${fmtDate(o.created_at)}</span></td>
+      <td>${esc(o.customer_name || "")}<br><span class="muted small">${esc(o.sender_phone || "")}</span></td>
+      <td>${esc(o.shop || "")}<br><span class="muted small">${esc(o.item || "")}</span></td>
+      <td>${statusPill(o.order_status)}</td><td>${o.delivery_fee != null ? "฿" + fmtNum(o.delivery_fee) : "—"}</td>
+      <td>${canChange ? next : `<span class="muted small">${esc(t("ord.viewOnly"))}</span>`}</td></tr>`;
+  }).join("");
+  v.innerHTML = head(t("v.orders.t"), t("v.orders.s"),
+      `<label style="font-size:14px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="incTest" style="width:auto" ${ORDERS_STATE.includeTest ? "checked" : ""}> ${esc(t("ord.showTest"))}</label>
+       <button class="btn ghost sm" id="csvBtn">${esc(t("ord.csv"))}</button>`)
+    + `<div class="card">${tableOrEmpty(`<th>${esc(t("ov.th.order"))}</th><th>${esc(t("ov.th.customer"))}</th><th>${esc(t("ord.th.shopItem"))}</th><th>${esc(t("ov.th.status"))}</th><th>${esc(t("ord.th.fee"))}</th><th>${esc(t("ord.th.action"))}</th>`, rows)}
+      <div class="pager"><button class="btn ghost sm" id="pgPrev" ${d.page <= 1 ? "disabled" : ""}>${esc(t("ord.prev"))}</button><span>${esc(t("ord.pageOf").replace("{p}", String(d.page)).replace("{n}", fmtNum(d.total)))}</span><button class="btn ghost sm" id="pgNext">${esc(t("ord.next"))}</button></div>
+      <div class="err-text" id="ordErr"></div></div>`;
+  $("#incTest").addEventListener("change", e => { ORDERS_STATE.includeTest = e.target.checked; ORDERS_STATE.page = 1; showView("orders"); });
+  $("#csvBtn").addEventListener("click", async () => { try { await apiCsv("/api/admin/reports/orders.csv" + (ORDERS_STATE.includeTest ? "?include_test=1" : ""), "safe-deli-orders.csv"); } catch (e) { showErr($("#ordErr"), e); } });
+  $("#pgPrev").addEventListener("click", () => { if (ORDERS_STATE.page > 1) { ORDERS_STATE.page--; showView("orders"); } });
+  $("#pgNext").addEventListener("click", () => { ORDERS_STATE.page++; showView("orders"); });
+  v.querySelectorAll("button[data-order]").forEach(b => b.addEventListener("click", async () => {
+    if (!confirm(t("ord.confirmChange").replace("{s}", t("st." + b.dataset.status)))) return;
+    try { await api(`/api/admin/orders/${b.dataset.order}/status`, {method: "POST", body: {status: b.dataset.status}}); showView("orders"); }
+    catch (e) { showErr($("#ordErr"), e); }
+  }));
+}
+
+/* ---------- Reviews: customer reviews, approve/reject (v19, Min 2026-11-12) ----------
+   Reviews are born pending and only show in the app after an approve here.
+   Both the star AND the comment need approval before showing; rejecting
+   needs a written reason; every decision is audit-logged. No fake or
+   demo reviews exist anywhere — the list is empty until real customers
+   review a delivered order. ---------- */
+let REV_FILTER = "pending";
+async function viewReviews(v) {
+  const d = await api("/api/admin/reviews?status=" + REV_FILTER + "&page=1&limit=" + pageSize());
+  const rows = (d.reviews || []).map(r => {
+    const stars = "★".repeat(r.stars || 0) + "☆".repeat(Math.max(0, 5 - (r.stars || 0)));
+    const canDecide = r.status === "pending";
+    return `<tr><td><b>${esc(r.shop_name || ("#" + r.shop_id))}</b><br><span class="muted small">${esc(r.order_no || "")} • ${fmtDate(r.created_at)}</span></td>
+      <td><span class="stars">${stars}</span> <b>${r.stars}/5</b><br><span>${esc(r.comment || "")}</span></td>
+      <td>${statusPill(r.status)}</td>
+      <td>${canDecide ? `<button class="btn green sm" data-revappr="${r.id}">${esc(t("common.approve"))}</button> <button class="btn danger sm" data-revrej="${r.id}">${esc(t("common.reject"))}</button>` : `<span class="muted small">${esc(t("rev.decided"))}</span>`}</td></tr>`;
+  }).join("");
+  const sel = (val, label) => `<option value="${val}"${REV_FILTER === val ? " selected" : ""}>${label}</option>`;
+  v.innerHTML = head(t("v.reviews.t"), t("v.reviews.s"))
+    + `<div class="notice blue">${t("rev.notice")}</div>`
+    + `<div class="card"><label class="muted small">${esc(t("rev.filterStatus"))} <select id="revFilter">${sel("pending", t("st.pending"))}${sel("approved", t("st.approved"))}${sel("rejected", t("st.rejected"))}${sel("all", t("common.all"))}</select></label>`
+    + `${tableOrEmpty(`<th>${esc(t("app.th.shop"))}</th><th>${esc(t("rev.th.review"))}</th><th>${esc(t("ov.th.status"))}</th><th>${esc(t("app.th.decision"))}</th>`, rows)}
+      <div class="err-text" id="revErr"></div></div>`;
+  v.querySelector("#revFilter").addEventListener("change", e => { REV_FILTER = e.target.value; showView("reviews"); });
+  v.querySelectorAll("button[data-revappr]").forEach(b => b.addEventListener("click", async () => {
+    if (!confirm(t("rev.confirmApprove"))) return;
+    try { await api("/api/admin/reviews/" + b.dataset.revappr + "/approve", {method: "POST", body: {}}); showView("reviews"); }
+    catch (e) { showErr($("#revErr"), e); }
+  }));
+  v.querySelectorAll("button[data-revrej]").forEach(b => b.addEventListener("click", async () => {
+    const reason = prompt(t("common.rejectReason"));
+    if (!reason || !reason.trim()) return;
+    try { await api("/api/admin/reviews/" + b.dataset.revrej + "/reject", {method: "POST", body: {reason: reason.trim()}}); showView("reviews"); }
+    catch (e) { showErr($("#revErr"), e); }
+  }));
+}
+
+/* ---------- Shop form helpers (2026-11-13 rebuild) ----------
+   AM/PM time picker (no typing — the old typed "7:00" was rejected by
+   the API), Maps-link coordinate parsing, and plain-Burmese error text
+   so the API's technical English never reaches the user raw. ---------- */
+function timePickerHTML(prefix) {
+  const hours = Array.from({length: 12}, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join("");
+  const mins = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
+    .map(m => `<option value="${String(m).padStart(2, "0")}">${String(m).padStart(2, "0")}</option>`).join("");
+  return `<div class="time-picker"><select id="${prefix}H" aria-label="hour">${hours}</select><select id="${prefix}M" aria-label="minute">${mins}</select><select id="${prefix}AP" aria-label="AM/PM"><option value="AM">AM</option><option value="PM">PM</option></select></div>`;
+}
+function timePickerRead(prefix) {
+  const h12 = Number($("#" + prefix + "H").value);
+  const min = $("#" + prefix + "M").value;
+  const ap = $("#" + prefix + "AP").value;
+  let h24 = h12 % 12; if (ap === "PM") h24 += 12;
+  return String(h24).padStart(2, "0") + ":" + min;
+}
+function timePickerSet(prefix, hhmm) {
+  const m = /^(\d{2}):(\d{2})$/.exec(hhmm || "");
+  const hourSel = $("#" + prefix + "H"), minSel = $("#" + prefix + "M"), apSel = $("#" + prefix + "AP");
+  if (!m || !hourSel || !minSel || !apSel) return;
+  let h = Number(m[1]); const minStr = String(Number(m[2])).padStart(2, "0");
+  const ap = h >= 12 ? "PM" : "AM";
+  let h12 = h % 12; if (h12 === 0) h12 = 12;
+  hourSel.value = String(h12);
+  // Keep a non-5-minute value (e.g. 07:03 from an old shop) instead of
+  // silently rounding it away.
+  if (![...minSel.options].some(o => o.value === minStr)) {
+    const opt = document.createElement("option");
+    opt.value = minStr; opt.textContent = minStr; minSel.appendChild(opt);
+  }
+  minSel.value = minStr;
+  apSel.value = ap;
+}
+function parseMapsLink(url) {
+  if (!url) return null;
+  let m = /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/.exec(url);
+  if (m) return {lat: Number(m[1]), lon: Number(m[2])};
+  m = /[?&](?:q|ll)=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/.exec(url);
+  if (m) return {lat: Number(m[1]), lon: Number(m[2])};
+  m = /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/.exec(url);
+  if (m) return {lat: Number(m[1]), lon: Number(m[2])};
+  return null; // Short links (maps.app.goo.gl) carry no coordinates —
+  // the GPS fields stay as they are; the save is not blocked.
+}
+function shopUrlList(value) {
+  return (value || "").split("\n").map(s => s.trim()).filter(Boolean);
+}
+// API error message (prefix) -> plain-Burmese i18n key. Anything
+// unrecognised falls back to the generic plain message — never raw.
+const SHOP_ERRS = [
+  ["Shop name is required", "sh.err.name"],
+  ["Category must be an enabled shop type", "sh.err.category"],
+  ["Shop address is required", "sh.err.address"],
+  ["Shop phone is required", "sh.err.phone"],
+  ["Invalid GPS coordinates", "sh.err.gps"],
+  ["open_time must use HH:MM", "sh.err.time"],
+  ["open_time and close_time must be provided together or both be null", "sh.err.time"],
+  ["Opening and closing times must differ", "sh.err.sameTime"],
+  ["maps_url must be a valid Maps link", "sh.err.url"],
+  ["video_url must be a valid HTTPS URL", "sh.err.url"],
+  ["menu_url must be a valid HTTPS URL", "sh.err.url"],
+  ["photo_url must be a valid HTTPS URL", "sh.err.url"],
+  ["photo_urls must be a list of HTTPS URLs", "sh.err.url"],
+  ["interior_photo_urls must be a list of HTTPS URLs", "sh.err.url"],
+  ["Shop not found", "sh.err.notFound"],
+  ["Nothing to update", "sh.err.nothing"],
+];
+function shopErrText(err) {
+  const msg = (err && err.message) || "";
+  const hit = SHOP_ERRS.find(([prefix]) => msg.indexOf(prefix) === 0);
+  return hit ? t(hit[1]) : t("sh.err.generic");
+}
+function shopErr(el, err) { if (el) el.textContent = shopErrText(err); }
+function shopErrKey(el, key) { if (el) el.textContent = t(key); }
+
+// --- Shop media upload (2026-11-13): pick a photo/video from the
+// phone's files, upload it, and the URL fills itself in + a preview
+// appears. No links needed. The URL field stays as a fallback.
+async function apiUpload(path, formData) {
+  // FormData sets its own multipart Content-Type (with boundary), so
+  // no Content-Type header here — unlike api(), which sends JSON.
+  const res = await fetch(path, {
+    method: "POST",
+    headers: TOKEN ? {"Authorization": "Bearer " + TOKEN} : {},
+    body: formData
+  });
+  const ct = res.headers.get("content-type") || "";
+  const data = ct.includes("application/json") ? await res.json().catch(() => ({})) : {};
+  if (!res.ok) {
+    const err = new Error((data && data.error) || ("HTTP " + res.status));
+    err.status = res.status; throw err;
+  }
+  return data;
+}
+function uploadErrText(err) {
+  const msg = (err && err.message) || "";
+  if (msg.indexOf("Only JPG, PNG or WebP") === 0) return t("sh.up.badType");
+  if (msg.indexOf("Only MP4, WebM or MOV") === 0) return t("sh.up.badVideo");
+  if (msg.indexOf("File is too large") === 0) {
+    return (msg.indexOf("100 MB") >= 0) ? t("sh.up.videoTooBig") : t("sh.up.tooBig");
+  }
+  return t("sh.up.failed");
+}
+function mediaThumb(url, isVideo, isNew) {
+  // The picture sits inside the app's gold frame (same style as the
+  // shop-photo and Menu dish cards) — never a bare thumbnail.
+  const inner = isVideo
+    ? `<video src="${esc(url)}" controls preload="metadata" playsinline></video>`
+    : `<img src="${esc(url)}" alt="">`;
+  const badge = isNew ? `<span class="new-badge">NEW</span>` : "";
+  return `<div class="frame-gold">${inner}${badge}</div>`;
+}
+// Is the menu in the form NEW (fresh, within the NEW window)? Set
+// from the shop being edited, or when a new menu is uploaded here.
+let menuIsNew = false;
+function renderMediaThumbs() {
+  // Show the pictures already in the fields (edit mode, or a link
+  // pasted by hand), so Min can SEE them before saving.
+  const set = (el, urls, isVideo, isNew) => { if (el) el.innerHTML = urls.filter(Boolean).map(u => mediaThumb(u, isVideo, isNew)).join(""); };
+  set($("#shPhotoThumb"), [$("#shPhoto") ? $("#shPhoto").value.trim() : ""], false, false);
+  set($("#shPhotosThumb"), shopUrlList($("#shPhotos") ? $("#shPhotos").value : ""), false, false);
+  set($("#shInteriorThumb"), shopUrlList($("#shInterior") ? $("#shInterior").value : ""), false, false);
+  set($("#shMenuThumb"), [$("#shMenu") ? $("#shMenu").value.trim() : ""], false, menuIsNew);
+  set($("#shVideoThumb"), [$("#shVideo") ? $("#shVideo").value.trim() : ""], true, false);
+}
+function bindUpload(fileInputId, kind, isVideo, applyUrl, statusId, thumbId) {
+  const input = $(fileInputId);
+  if (!input) return;
+  input.addEventListener("change", async () => {
+    const files = Array.from(input.files || []);
+    input.value = "";
+    if (!files.length) return;
+    const status = $(statusId), thumb = $(thumbId);
+    for (const file of files) {
+      if (status) status.textContent = t("sh.up.uploading");
+      // Show the picked file at once (local preview) while it uploads.
+      // Single photo/video: replace the frame. Photo lists: add a frame.
+      let localUrl = null;
+      try { localUrl = URL.createObjectURL(file); } catch (e) {}
+      if (localUrl && thumb) {
+        if (input.multiple) thumb.insertAdjacentHTML("beforeend", mediaThumb(localUrl, isVideo));
+        else thumb.innerHTML = mediaThumb(localUrl, isVideo);
+      }
+      const fd = new FormData();
+      fd.append("kind", kind);
+      fd.append("file", file);
+      try {
+        const r = await apiUpload("/api/admin/media", fd);
+        if (localUrl) { try { URL.revokeObjectURL(localUrl); } catch (e) {} }
+        await applyUrl(r.url);
+        if (status) status.textContent = t("sh.up.done");
+        renderMediaThumbs();
+      } catch (e) {
+        if (localUrl) { try { URL.revokeObjectURL(localUrl); } catch (e2) {} }
+        if (status) status.textContent = uploadErrText(e);
+        // Leave the picked picture visible (do not re-render): Min
+        // can SEE it is the right photo and pick it again to retry.
+      }
+    }
+  });
+}
+
+/* ---------- Shops ---------- */
+async function viewShops(v) {
+  const d = await api("/api/admin/shops?limit=50");
+  const types = await api("/api/admin/shop-types").catch(() => ({types: []}));
+  const enabledTypes = (types.types || []).filter(t => t.enabled);
+  const isOwner = ME.role === "owner";
+  const rows = (d.shops || []).map(s => `<tr${s.is_open ? "" : ' style="opacity:.55"'}><td data-lbl=""><b>${esc(s.name)}</b>${s.is_new ? ` <span class="pill new">${esc(t("st.new"))}</span>` : ""}<br><span class="muted small">${esc(s.category || "")} • ${esc(s.address || "")}</span></td>
+    <td data-lbl="${esc(t("ov.th.status"))}"><span class="pill ${s.is_open ? "green" : "grey"}">${esc(t("set.shop.modeIs"))}: ${esc(s.is_open ? t("set.shop.openNow") : t("set.shop.closedNow"))}</span><br><span class="muted small">${esc(t("set.shop.hoursIs"))}: ${esc(s.is_open_now ? t("set.shop.openNow") : t("set.shop.closedNow"))}</span><br>${statusPill(s.status)}${s.verified ? ` <span class="pill blue">${esc(t("st.verified"))}</span>` : ""}</td>
+    <td data-lbl="${esc(t("sh.th.contact"))}">${esc(s.phone || "")}<br><span class="muted small">${s.latitude != null ? esc(s.latitude) + ", " + esc(s.longitude) : esc(t("sh.noPin"))}</span></td>
+    <td data-lbl="${esc(t("sh.th.since"))}"><span class="muted small">${fmtDate(s.created_at)}</span></td>
+    <td data-lbl="">${isOwner ? `<button class="btn ghost sm" data-sh-edit="${s.id}">${esc(t("sh.edit"))}</button> <button class="btn ghost sm" data-sh-toggle="${s.id}" data-sh-status="${s.status === "active" ? "suspended" : "active"}">${s.status === "active" ? esc(t("sh.suspend")) : esc(t("sh.activate"))}</button> <button class="btn ghost sm" data-sh-oc="${s.id}" data-sh-open="${s.is_open ? "0" : "1"}">${s.is_open ? "🔴 " + esc(t("set.shop.closeBtn")) : "🟢 " + esc(t("set.shop.openBtn"))}</button>` : '<span class="muted small">—</span>'}</td></tr>`).join("");
+  v.innerHTML = head(t("v.shops.t"), t("v.shops.s"))
+    + `<div class="card shop-list">${tableOrEmpty(`<th>${esc(t("app.th.shop"))}</th><th>${esc(t("ov.th.status"))}</th><th>${esc(t("sh.th.contact"))}</th><th>${esc(t("sh.th.since"))}</th><th></th>`, rows)}
+      ${isOwner ? `<h3 style="margin-top:16px" id="shFormTitle">${esc(t("sh.formAdd"))}</h3>
+      <div class="form-grid">
+        <div><label class="flabel">${esc(t("sh.f.name"))} *</label><input id="shName" placeholder="${esc(t("sh.ph.name"))}"></div>
+        <div><label class="flabel">${esc(t("sh.f.type"))} *</label><select id="shType">${enabledTypes.map(t => `<option value="${esc(t.key)}">${esc(typeName(t))}</option>`).join("")}</select></div>
+        <div><label class="flabel">${esc(t("sh.f.address"))} *</label><input id="shAddr"></div>
+        <div><label class="flabel">${esc(t("sh.f.phone"))} *</label><input id="shPhone" placeholder="${esc(t("sh.ph.phone"))}"></div>
+        <div class="form-sec">${esc(t("sh.sec.location"))}</div>
+        <div class="full"><label class="flabel">${esc(t("sh.f.maps"))} ${esc(t("app.optional"))}</label><input id="shMaps" type="url" inputmode="url" placeholder="${esc(t("sh.ph.link"))}"><div class="muted small" style="margin-top:4px">${t("sh.mapsHint")}</div></div>
+        <div><label class="flabel">${esc(t("sh.f.lat"))} ${esc(t("app.optional"))}</label><input id="shLat" type="number" step="any" placeholder="${esc(t("sh.ph.lat"))}"></div>
+        <div><label class="flabel">${esc(t("sh.f.lon"))} ${esc(t("app.optional"))}</label><input id="shLon" type="number" step="any" placeholder="${esc(t("sh.ph.lon"))}"></div>
+        <div class="form-sec">${esc(t("sh.sec.hours"))}</div>
+        <div><label class="flabel">${esc(t("sh.f.open"))}</label>${timePickerHTML("open")}</div>
+        <div><label class="flabel">${esc(t("sh.f.close"))}</label>${timePickerHTML("close")}</div>
+        <div class="form-sec">${esc(t("sh.sec.media"))} <span class="muted">${esc(t("sh.sec.mediaSub"))}</span></div>
+        <div class="full"><label class="flabel">${esc(t("sh.f.photo"))} ${esc(t("app.optional"))}</label><input id="shPhoto" type="hidden"><div class="muted small">${esc(t("sh.up.photoWhere"))}</div><div class="up-row"><input id="shPhotoFile" type="file" accept="image/*"></div><div class="muted small">${esc(t("sh.up.hint"))}</div><div class="thumb thumb-single" id="shPhotoThumb"></div><div class="up-status" id="shPhotoStatus"></div></div>
+        <div class="full"><label class="flabel">${esc(t("sh.f.photos"))} ${esc(t("app.optional"))}</label><input id="shPhotos" type="hidden"><div class="up-row"><input id="shPhotosFile" type="file" accept="image/*" multiple></div><div class="muted small">${esc(t("sh.up.hint"))}</div><div class="thumb thumb-grid" id="shPhotosThumb"></div><div class="up-status" id="shPhotosStatus"></div></div>
+        <div class="full"><label class="flabel">${esc(t("sh.f.interior"))} ${esc(t("app.optional"))}</label><input id="shInterior" type="hidden"><div class="up-row"><input id="shInteriorFile" type="file" accept="image/*" multiple></div><div class="muted small">${esc(t("sh.up.hint"))}</div><div class="thumb thumb-grid" id="shInteriorThumb"></div><div class="up-status" id="shInteriorStatus"></div></div>
+        <div class="full"><label class="flabel">${esc(t("sh.f.video"))} ${esc(t("app.optional"))}</label><input id="shVideo" type="hidden"><div class="up-row"><input id="shVideoFile" type="file" accept="video/*"></div><div class="muted small">${esc(t("sh.up.videoHint"))}</div><div class="thumb thumb-single" id="shVideoThumb"></div><div class="up-status" id="shVideoStatus"></div></div>
+        <div class="full"><label class="flabel">${esc(t("sh.f.menu"))} ${esc(t("app.optional"))}</label><input id="shMenu" type="hidden"><div class="up-row"><input id="shMenuFile" type="file" accept="image/*"></div><div class="muted small">${esc(t("sh.up.hint"))}</div><div class="thumb thumb-single" id="shMenuThumb"></div><div class="up-status" id="shMenuStatus"></div></div>
+        <div class="full"><button class="btn sm" id="shSave">${esc(t("sh.add"))}</button> <button class="btn ghost sm hidden" id="shCancel">${esc(t("common.cancel"))}</button></div>
+      </div><div class="muted small" style="margin-top:8px">${t("sh.gpsHint")}</div><div class="err-text" id="shErr"></div><div class="ok-text" id="shOk"></div>` : ""}
+    </div>`;
+  let shEditId = null, shSaving = false;
+  // Add mode: the pickers start at the global hours (06:00 / 22:00).
+  timePickerSet("open", "06:00"); timePickerSet("close", "22:00");
+  // Pasting a Maps link fills the GPS pin from its coordinates.
+  const shMaps = $("#shMaps");
+  if (shMaps) shMaps.addEventListener("change", () => {
+    const p = parseMapsLink(shMaps.value.trim());
+    if (p) { $("#shLat").value = p.lat; $("#shLon").value = p.lon; }
+  });
+  // Media upload: pick a photo/video from the phone's files — no link
+  // box (Min 2026-11-13: links are not wanted). The uploaded URL is
+  // kept in a hidden field and a preview appears in the gold frame.
+  // A fresh form starts with no NEW menu.
+  menuIsNew = false;
+  bindUpload("#shPhotoFile", "shop", false, url => { $("#shPhoto").value = url; }, "#shPhotoStatus", "#shPhotoThumb");
+  bindUpload("#shPhotosFile", "shop", false, url => { const ta = $("#shPhotos"); ta.value = (ta.value.trim() ? ta.value.trim() + "\n" : "") + url; }, "#shPhotosStatus", "#shPhotosThumb");
+  bindUpload("#shInteriorFile", "interior", false, url => { const ta = $("#shInterior"); ta.value = (ta.value.trim() ? ta.value.trim() + "\n" : "") + url; }, "#shInteriorStatus", "#shInteriorThumb");
+  bindUpload("#shMenuFile", "menu", false, url => { $("#shMenu").value = url; menuIsNew = true; }, "#shMenuStatus", "#shMenuThumb");
+  bindUpload("#shVideoFile", "video", true, url => { $("#shVideo").value = url; }, "#shVideoStatus", "#shVideoThumb");
+  v.querySelectorAll("[data-sh-edit]").forEach(b => b.addEventListener("click", async () => {
+    const s = (d.shops || []).find(x => String(x.id) === b.dataset.shEdit);
+    if (!s) return;
+    // Hours first: if they cannot be loaded, say so and do NOT open
+    // the form — opening it with default hours would silently
+    // overwrite the shop's real hours on save.
+    let h;
+    try { h = await api(`/api/admin/shops/${s.id}/hours`); }
+    catch (e) { shopErr($("#shErr"), e); return; }
+    shEditId = s.id;
+    $("#shName").value = s.name || ""; $("#shType").value = s.category || "";
+    $("#shAddr").value = s.address || ""; $("#shPhone").value = s.phone || "";
+    $("#shLat").value = s.latitude != null ? s.latitude : ""; $("#shLon").value = s.longitude != null ? s.longitude : "";
+    // New/media fields — the admin list now returns them all.
+    $("#shMaps").value = s.maps_url || "";
+    $("#shPhoto").value = s.photo_url || "";
+    $("#shPhotos").value = (s.photo_urls || []).join("\n");
+    $("#shInterior").value = (s.interior_photo_urls || []).join("\n");
+    $("#shVideo").value = s.video_url || "";
+    $("#shMenu").value = s.menu_url || "";
+    menuIsNew = !!s.menu_is_new;
+    renderMediaThumbs();
+    timePickerSet("open", h.open_time || "06:00"); timePickerSet("close", h.close_time || "22:00");
+    $("#shFormTitle").textContent = t("sh.formEdit").replace("{n}", s.name || "");
+    $("#shSave").textContent = t("common.save"); $("#shCancel").classList.remove("hidden");
+    window.scrollTo(0, document.body.scrollHeight);
+  }));
+  v.querySelectorAll("[data-sh-toggle]").forEach(b => b.addEventListener("click", async () => {
+    const toStatus = b.dataset.shStatus;
+    if (toStatus === "suspended" && !confirm(t("sh.confirmSuspend"))) return;
+    try { await api(`/api/admin/shops/${b.dataset.shToggle}`, {method: "PUT", body: {status: toStatus}}); showView("shops"); }
+    catch (e) { shopErr($("#shErr"), e); }
+  }));
+  // --- Per-shop open/close (owner only, manual + immediate, any time, no schedule) ---
+  v.querySelectorAll("[data-sh-oc]").forEach(b => b.addEventListener("click", async () => {
+    const toOpen = b.dataset.shOpen === "1" ? 1 : 0;
+    try {
+      await api(`/api/admin/shops/${b.dataset.shOc}`, {method: "PUT", body: {is_open: toOpen}});
+    } catch (e) { shopErr($("#shErr"), e); return; }
+    showView("shops");
+  }));
+  const shSave = $("#shSave");
+  if (shSave) shSave.addEventListener("click", async () => {
+    // Double-submit guard (2026-11-13): extra taps on Add created
+    // duplicate shops. The button is disabled while a save is in
+    // flight, and the server dedupes identical replays by name+phone.
+    if (shSaving) return;
+    const errEl = $("#shErr"); if (errEl) errEl.textContent = "";
+    const name = $("#shName").value.trim(), addr = $("#shAddr").value.trim(), phone = $("#shPhone").value.trim();
+    if (!name) { shopErrKey(errEl, "sh.err.name"); return; }
+    if (!addr) { shopErrKey(errEl, "sh.err.address"); return; }
+    if (!phone) { shopErrKey(errEl, "sh.err.phone"); return; }
+    const open = timePickerRead("open"), close = timePickerRead("close");
+    if (open === close) { shopErrKey(errEl, "sh.err.sameTime"); return; }
+    const body = {name, category: $("#shType").value, address: addr, phone,
+      maps_url: $("#shMaps").value.trim() || null,
+      photo_url: $("#shPhoto").value.trim() || null,
+      photo_urls: shopUrlList($("#shPhotos").value),
+      interior_photo_urls: shopUrlList($("#shInterior").value),
+      video_url: $("#shVideo").value.trim() || null,
+      menu_url: $("#shMenu").value.trim() || null};
+    const lat = $("#shLat").value.trim(), lon = $("#shLon").value.trim();
+    if (lat !== "" && lon !== "") { body.latitude = Number(lat); body.longitude = Number(lon); }
+    shSaving = true; shSave.disabled = true; shSave.textContent = t("sh.saving");
+    try {
+      let shopId = shEditId;
+      if (shEditId) { await api(`/api/admin/shops/${shEditId}`, {method: "PUT", body}); }
+      else { const r = await api("/api/admin/shops", {method: "POST", body}); shopId = r.shop_id; }
+      // Hours are always saved with the shop (the picker always yields
+      // both values), so a shop can never be left hour-less by mistake.
+      await api(`/api/admin/shops/${shopId}/hours`, {method: "PUT", body: {open_time: open, close_time: close}});
+      showView("shops");
+    } catch (e) { shopErr(errEl, e); }
+    finally { shSaving = false; shSave.disabled = false; shSave.textContent = shEditId ? t("common.save") : t("sh.add"); }
+  });
+  const shCancel = $("#shCancel");
+  if (shCancel) shCancel.addEventListener("click", () => showView("shops"));
+}
+
+/* ---------- Products ---------- */
+async function viewProducts(v) {
+  const d = await api("/api/admin/products?limit=50");
+  const canEdit = ["owner", "finance"].includes(ME.role);
+  const products = d.products || [];
+  // Grouped, one section per group (Min 2026-11-13: keep it simple —
+  // group + order, each dish in its own group, never mixed). The API
+  // already returns them grouped + ordered (group, sort_order).
+  const groups = [];
+  for (const p of products) {
+    const g = p.group_name || "Food";
+    let sec = groups.find(x => x.name === g);
+    if (!sec) { sec = {name: g, items: []}; groups.push(sec); }
+    sec.items.push(p);
+  }
+  const sectionHtml = groups.map(sec => {
+    const rows = sec.items.map((p, i) => {
+      const photo = p.image_url
+        ? `<div class="frame-gold prod-frame"><img src="${esc(p.image_url)}" alt=""></div>`
+        : `<div class="frame-gold prod-frame"></div>`;
+      const moveBtns = canEdit
+        ? `<button class="btn sm" data-prod-up="${p.id}" ${i === 0 ? "disabled" : ""} aria-label="up">↑</button> <button class="btn sm" data-prod-down="${p.id}" ${i === sec.items.length - 1 ? "disabled" : ""} aria-label="down">↓</button>`
+        : "";
+      return `<tr><td data-lbl=""><div id="pt-${p.id}">${photo}</div>${canEdit ? `<div class="up-row"><input id="pf-${p.id}" type="file" accept="image/*" data-prod-photo="${p.id}"></div><div class="up-status" id="ps-${p.id}"></div>` : ""}</td>
+      <td data-lbl="${esc(t("prod.th.product"))}"><b>${esc(p.name)}</b><br><span class="muted small">${esc(p.description || "")}</span><br><span class="muted small">${esc(p.shop_name || ("#" + p.shop_id))}</span></td>
+      <td data-lbl="${esc(t("prod.th.price"))}">${p.price != null ? "฿" + fmtNum(p.price) : "—"}</td>
+      <td data-lbl="${esc(t("ov.th.status"))}">${p.is_available ? `<span class="pill green">${esc(t("prod.available"))}</span>` : `<span class="pill grey">${esc(t("prod.unavailable"))}</span>`}</td>
+      <td data-lbl="">${moveBtns}</td></tr>`;
+    }).join("");
+    return `<h3 style="margin:14px 0 6px">${esc(sec.name)}</h3>${tableOrEmpty(`<th>${esc(t("prod.f.photo"))}</th><th>${esc(t("prod.th.product"))}</th><th>${esc(t("prod.th.price"))}</th><th>${esc(t("ov.th.status"))}</th><th></th>`, rows)}`;
+  }).join("");
+  const bodyHtml = sectionHtml || tableOrEmpty(`<th>${esc(t("prod.f.photo"))}</th><th>${esc(t("prod.th.product"))}</th><th>${esc(t("prod.th.price"))}</th><th>${esc(t("ov.th.status"))}</th><th></th>`, "");
+  v.innerHTML = head(t("v.products.t"), t("v.products.s"))
+    + `<div class="card prod-list">${bodyHtml}
+      ${canEdit ? `<div style="margin-top:14px"><button class="btn sm" id="addProd">${esc(t("prod.add"))}</button></div><div id="prodForm"></div>` : ""}<div class="err-text" id="prodErr"></div></div>`;
+  // Per-dish photo change (same gold frame, same upload).
+  v.querySelectorAll("[data-prod-photo]").forEach(input => {
+    const id = input.dataset.prodPhoto;
+    bindUpload("#pf-" + id, "product", false, async url => {
+      await api(`/api/admin/products/${id}`, {method: "PUT", body: {image_url: url}});
+      showView("products");
+    }, "#ps-" + id, "#pt-" + id);
+  });
+  // Move a dish up/down inside its group (swap positions, then refresh).
+  v.querySelectorAll("[data-prod-up],[data-prod-down]").forEach(b => b.addEventListener("click", async () => {
+    const id = Number(b.dataset.prodUp || b.dataset.prodDown);
+    const dir = b.dataset.prodUp ? -1 : 1;
+    const me = products.find(p => p.id === id);
+    if (!me) return;
+    const groupItems = products.filter(p => (p.group_name || "Food") === (me.group_name || "Food"))
+      .sort((a, b2) => (a.sort_order - b2.sort_order) || (a.id - b2.id));
+    const idx = groupItems.findIndex(p => p.id === id);
+    const other = groupItems[idx + dir];
+    if (!other) return;
+    try {
+      await api(`/api/admin/products/${other.id}`, {method: "PUT", body: {sort_order: me.sort_order}});
+      await api(`/api/admin/products/${id}`, {method: "PUT", body: {sort_order: other.sort_order}});
+      showView("products");
+    } catch (e) { showErr($("#prodErr"), e); }
+  }));
+  const addBtn = $("#addProd");
+  if (addBtn) addBtn.addEventListener("click", async () => {
+    const shops = await api("/api/admin/shops?limit=100").catch(() => ({shops: []}));
+    // Group suggestions: the groups already in use (so the owner
+    // reuses a group instead of mistyping a new one).
+    const groupOptions = [...new Set(["Food", ...products.map(p => p.group_name || "Food")])]
+      .map(g => `<option value="${esc(g)}">`).join("");
+    $("#prodForm").innerHTML = `<div class="form-grid" style="margin-top:12px">
+      <div><label class="flabel">${esc(t("app.th.shop"))}</label><select id="pfShop">${(shops.shops || []).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div>
+      <div><label class="flabel">${esc(t("prod.f.name"))}</label><input id="pfName"></div>
+      <div><label class="flabel">${esc(t("prod.th.price"))}</label><input id="pfPrice" type="number" min="0" step="0.01"></div>
+      <div><label class="flabel">${esc(t("prod.f.currency"))}</label><select id="pfCur"><option value="THB">${esc(t("prod.cur.thb"))}</option><option value="MMK">${esc(t("prod.cur.mmk"))}</option></select></div>
+      <div><label class="flabel">${esc(t("prod.f.group"))}</label><input id="pfGroup" list="pfGroupList" placeholder="${esc(t("prod.ph.group"))}"><datalist id="pfGroupList">${groupOptions}</datalist></div>
+      <div><label class="flabel">${esc(t("prod.f.desc"))}</label><input id="pfDesc"></div>
+      <div class="full"><label class="flabel">${esc(t("prod.f.photo"))} ${esc(t("app.optional"))}</label><input id="pfPhoto" type="hidden"><div class="up-row"><input id="pfPhotoFile" type="file" accept="image/*"></div><div class="muted small">${esc(t("sh.up.hint"))}</div><div class="thumb thumb-single" id="pfPhotoThumb"></div><div class="up-status" id="pfPhotoStatus"></div></div>
+      <div class="full"><button class="btn sm" id="pfSave">${esc(t("common.save"))}</button></div></div>`;
+    bindUpload("#pfPhotoFile", "product", false, url => {
+      $("#pfPhoto").value = url;
+      const th = $("#pfPhotoThumb");
+      if (th) th.innerHTML = mediaThumb(url, false, false);
+    }, "#pfPhotoStatus", "#pfPhotoThumb");
+    $("#pfSave").addEventListener("click", async () => {
+      try {
+        await api("/api/admin/products", {method: "POST", body: {shop_id: Number($("#pfShop").value), name: $("#pfName").value.trim(), price: Number($("#pfPrice").value), currency: $("#pfCur").value, description: $("#pfDesc").value.trim(), group_name: $("#pfGroup").value.trim() || "Food", image_url: $("#pfPhoto").value.trim() || null}});
+        showView("products");
+      } catch (e) { showErr($("#prodErr"), e); }
+    });
+  });
+}
+
+/* ---------- Customers (derived from orders; phones masked for support/ops) ---------- */
+async function viewCustomers(v) {
+  const d = await api("/api/admin/customers?limit=25");
+  const rows = (d.customers || []).map(c => `<tr><td><b>${esc(c.customer_name || "—")}</b></td><td>${esc(c.phone || "—")}</td>
+    <td>${fmtNum(c.orders)}</td><td>${esc(c.last_shop || "")}<br><span class="muted small">${fmtDate(c.last_order_at)}</span></td></tr>`).join("");
+  v.innerHTML = head(t("v.customers.t"), t("v.customers.s"))
+    + `<div class="card">${tableOrEmpty(`<th>${esc(t("ov.th.customer"))}</th><th>${esc(t("cu.th.phone"))}</th><th>${esc(t("cu.th.orders"))}</th><th>${esc(t("cu.th.last"))}</th>`, rows)}
+      <div class="pager"><span>${esc(t("cu.totalN").replace("{n}", fmtNum(d.total)))}</span></div></div>`;
+}
+
+/* ---------- Delivery (EXPRESS strength: stats + donut + route links, no fake map) ---------- */
+async function viewDelivery(v) {
+  const d = await api("/api/admin/deliveries?limit=25");
+  const by = {};
+  (d.deliveries || []).forEach(x => { by[x.status] = (by[x.status] || 0) + 1; });
+  const total = d.total || 0;
+  const donutHtml = donut([
+    {label: t("st.delivered"), value: by.delivered || 0, color: "#16A34A"},
+    {label: t("st.delivering"), value: (by.delivering || 0) + (by.picked_up || 0), color: "#5422c8"},
+    {label: t("st.assigned") + " / " + t("st.accepted"), value: (by.assigned || 0) + (by.accepted || 0), color: "#0EA5E9"},
+    {label: t("ov.donut.delCreated"), value: by.created || 0, color: "#D97706"},
+    {label: t("ov.donut.delFailed"), value: (by.failed || 0) + (by.cancelled || 0), color: "#DC2626"}
+  ], total, String(total), t("ov.donut.delTotal"));
+  const rows = (d.deliveries || []).map(x => {
+    const pos = x.latest_position;
+    const age = x.latest_position_age_seconds;
+    return `<tr><td><b>${esc(x.order_no || ("#" + x.id))}</b><br><span class="muted small">${esc(x.customer_name || "")} • ${esc(x.order_shop || "")}</span></td>
+    <td>${statusPill(x.status)}<br><span class="muted small">${esc(t("dl.rider").replace("{n}", x.rider_name || "—"))}</span></td>
+    <td>${x.route_url ? `<a href="${esc(x.route_url)}" target="_blank" rel="noopener">${esc(t("dl.route"))}</a>` : "—"}<br><span class="muted small">${pos ? `${esc(t("dl.lastPos"))}: ${esc(pos.lat)}, ${esc(pos.lon)}${age != null ? " • " + esc(t("dl.ageSec").replace("{n}", String(age))) : ""}` : esc(t("dl.noLive"))}</span></td>
+    <td><span class="muted small">${fmtDate(x.created_at)}</span></td></tr>`;
+  }).join("");
+  v.innerHTML = head(t("v.delivery.t"), t("v.delivery.s"))
+    + `<div class="grid cards2"><div class="card"><h2>${esc(t("dl.statusT"))}</h2>${donutHtml}</div>
+      <div class="card"><h2>${esc(t("dl.noteT"))}</h2><div class="notice amber">${esc(t("dl.noteRider"))}</div>
+      <div class="notice blue">${esc(t("dl.noteFee"))}</div></div></div>`
+    + `<div class="card" style="margin-top:14px">${tableOrEmpty(`<th>${esc(t("ov.th.order"))}</th><th>${esc(t("dl.th.statusRider"))}</th><th>${esc(t("dl.th.routePos"))}</th><th>${esc(t("dl.th.date"))}</th>`, rows)}</div>`;
+}
+
+/* ---------- Riders ---------- */
+async function viewRiders(v) {
+  const d = await api("/api/admin/riders");
+  const rows = (d.riders || []).map(r => `<tr><td><b>${esc(r.name)}</b><br><span class="muted small">${esc(r.phone || "")}</span></td>
+    <td>${statusPill(r.status)}${r.on_duty ? ` <span class="pill purple">${esc(t("ri.onDuty"))}</span>` : ` <span class="pill grey">${esc(t("ri.offDuty"))}</span>`}</td>
+    <td>${r.latest_position ? `${esc(r.latest_position.lat)}, ${esc(r.latest_position.lon)}<br><span class="muted small">${r.latest_position.age_minutes != null ? esc(t("ri.ageMin").replace("{n}", String(r.latest_position.age_minutes))) : ""}</span>` : `<span class="muted small">${esc(t("ri.noPos"))}</span>`}</td></tr>`).join("");
+  v.innerHTML = head(t("v.riders.t"), t("v.riders.s"))
+    + `<div class="notice blue">${esc(t("ri.notice"))}</div>`
+    + `<div class="card">${tableOrEmpty(`<th>${esc(t("ri.th.rider"))}</th><th>${esc(t("ov.th.status"))}</th><th>${esc(t("ri.th.lastPos"))}</th>`, rows)}</div>`;
+}
+
+/* ---------- Finance / Payments (ELEMENTS gradient KPIs + payments donut) ---------- */
+async function viewFinance(v) {
+  const s = await api("/api/admin/dashboard/summary");
+  const fin = s.finance || {income_today: 0, income_month: 0, expense_today: 0, expense_month: 0, net_today: 0, net_month: 0, currency: "THB"};
+  const cur = fin.currency;
+  const led = await api("/api/admin/ledger?limit=100").catch(() => ({entries: []}));
+  const entries = led.entries || led.ledger || [];
+  const byMethod = {};
+  entries.forEach(e => { const m = e.payment_method || "—"; byMethod[m] = (byMethod[m] || 0) + Math.abs(Number(e.amount || 0)); });
+  const methodTotal = Object.values(byMethod).reduce((a, b) => a + b, 0);
+  const methodColors = {"Cash": "#0EA5E9", "Card": "#F59E0B", "Online": "#7C3AED", "KBZPay": "#16A34A", "Wave": "#EC4899", "—": "#94A3B8"};
+  const methodParts = Object.entries(byMethod).map(([m, tot]) => ({label: m, value: Math.round(tot), color: methodColors[m] || "#64748B"}));
+  const rows = entries.map(e => `<tr><td><span class="muted small">${fmtDate(e.created_at)}</span></td><td>${esc(e.entry_type || "")}<br><span class="muted small">${esc(e.note || "")}</span></td>
+    <td>${e.direction === "in" ? `<span class="pill green">${esc(t("fin.in"))}</span>` : `<span class="pill amber">${esc(t("fin.out"))}</span>`}</td>
+    <td>${fmtMoney(e.amount, e.currency || cur)}</td><td>${esc(e.payment_method || "—")}</td><td>${statusPill(e.status)}</td></tr>`).join("");
+  v.innerHTML = head(t("v.finance.t"), t("v.finance.s"))
+    + `<div class="notice amber">${esc(t("fin.d3"))}</div>`
+    + `<div class="grid kpis">
+      <div class="kpi grad g1"><div class="lbl">${esc(t("ov.kpi.incomeToday"))}</div><div class="val">${fmtMoney(fin.income_today, cur)}</div><div class="trend">${esc(t("ov.kpi.incomeMonth").replace("{v}", fmtMoney(fin.income_month, cur)))}</div></div>
+      <div class="kpi grad g2"><div class="lbl">${esc(t("fin.expenseToday"))}</div><div class="val">${fmtMoney(fin.expense_today, cur)}</div><div class="trend">${esc(t("ov.kpi.incomeMonth").replace("{v}", fmtMoney(fin.expense_month, cur)))}</div></div>
+      <div class="kpi grad g3"><div class="lbl">${esc(t("fin.netToday"))}</div><div class="val">${fmtMoney(fin.net_today, cur)}</div><div class="trend">${esc(t("ov.kpi.incomeMonth").replace("{v}", fmtMoney(fin.net_month, cur)))}</div></div>
+      <div class="kpi grad g4"><div class="lbl">${esc(t("fin.ordersTotal"))}</div><div class="val">${fmtNum(s.orders.total)}</div><div class="trend">${esc(t("fin.todayN").replace("{n}", fmtNum(s.orders.today)))}</div></div>
+      <div class="kpi grad g5"><div class="lbl">${esc(t("ov.kpi.shops"))}</div><div class="val">${fmtNum(s.shops.total)}</div><div class="trend">${esc(t("fin.shopsApproved").replace("{n}", fmtNum(s.shops.active)))}</div></div>
+    </div>`
+    + `<div class="grid cards2" style="margin-top:14px">
+      <div class="card"><h2>${esc(t("fin.payT"))}</h2>${donut(methodParts, methodTotal, methodTotal ? fmtMoney(methodTotal, cur) : "0", t("fin.fromListed"))}<div class="muted small">${esc(t("fin.donutNote"))}</div></div>
+      <div class="card"><h2>${esc(t("fin.addT"))}</h2>
+        <div class="form-grid"><div><label class="flabel">${esc(t("sh.f.type"))}</label><select id="lgType"><option value="order_charge">order_charge</option><option value="delivery_fee">delivery_fee</option><option value="refund">refund</option><option value="merchant_settlement">merchant_settlement</option><option value="adjustment">adjustment</option><option value="reversal">reversal</option></select></div>
+        <div><label class="flabel">${esc(t("fin.f.amount"))}</label><input id="lgAmt" type="number" min="0" step="0.01"></div>
+        <div><label class="flabel">${esc(t("fin.in"))} / ${esc(t("fin.out"))}</label><select id="lgDir"><option value="in">${esc(t("fin.in"))} (in)</option><option value="out">${esc(t("fin.out"))} (out)</option></select></div>
+        <div><label class="flabel">${esc(t("prod.f.currency"))}</label><select id="lgCur"><option value="THB">${esc(t("fin.curThb"))}</option><option value="MMK">${esc(t("fin.curMmk"))}</option></select></div>
+        <div><label class="flabel">${esc(t("fin.f.method"))}</label><input id="lgMethod" placeholder="Cash / KBZPay / Wave"></div>
+        <div><label class="flabel">${esc(t("fin.f.shop"))}</label><input id="lgShop" type="number" min="1"></div>
+        <div class="full"><label class="flabel">${esc(t("fin.f.note"))}</label><input id="lgNote"></div>
+        <div class="full"><button class="btn sm" id="lgSave">${esc(t("fin.save"))}</button> <span class="muted small">${esc(t("fin.appendNote"))}</span></div></div>
+        <div class="err-text" id="lgErr"></div><div class="ok-text" id="lgOk"></div></div>
+    </div>`
+    + `<div class="card" style="margin-top:14px"><h2>${esc(t("fin.ledgerT"))}</h2>${tableOrEmpty(`<th>${esc(t("dl.th.date"))}</th><th>${esc(t("fin.th.typeNote"))}</th><th>${esc(t("fin.th.direction"))}</th><th>${esc(t("fin.f.amount"))}</th><th>${esc(t("fin.th.method"))}</th><th>${esc(t("ov.th.status"))}</th>`, rows)}</div>`;
+  $("#lgSave").addEventListener("click", async () => {
+    const body = {entry_type: $("#lgType").value, amount: Number($("#lgAmt").value), direction: $("#lgDir").value,
+      currency: $("#lgCur").value, payment_method: $("#lgMethod").value.trim() || null, note: $("#lgNote").value.trim() || null};
+    const shop = $("#lgShop").value.trim();
+    if (shop) body.shop_id = Number(shop);
+    try { await api("/api/admin/ledger", {method: "POST", body}); $("#lgOk").textContent = t("common.saved"); showView("finance"); }
+    catch (e) { showErr($("#lgErr"), e); }
+  });
+}
+
+/* ---------- Media ---------- */
+async function viewMedia(v) {
+  const d = await api("/api/admin/settings").catch(() => ({}));
+  const s = d.settings || d;
+  const hero = s.hero_image || "";
+  const promos = Array.isArray(s.promo_slots) ? s.promo_slots : [];
+  const featured = Array.isArray(s.featured_shop_ids) ? s.featured_shop_ids : [];
+  v.innerHTML = head(t("v.media.t"), t("v.media.s"))
+    + `<div class="grid cards2">
+      <div class="card"><h2>${esc(t("me.heroT"))}</h2>${hero ? `<img src="${esc(hero)}" alt="Hero" style="max-width:100%;border-radius:10px">` : `<div class="empty">${esc(t("me.heroEmpty"))}</div>`}
+      <div class="row-flex" style="margin-top:10px"><input id="heroUrl" placeholder="${esc(t("me.heroPh"))}" value="${esc(hero)}"><button class="btn sm" id="heroSave">${esc(t("common.save"))}</button></div><div class="err-text" id="mediaErr"></div></div>
+      <div class="card"><h2>${esc(t("me.promoT"))}</h2>${promos.length ? `<ul>${promos.map((p, i) => `<li style="padding:4px 0">#${i + 1} — ${esc(typeof p === "string" ? p : (p.title || p.image || JSON.stringify(p)))}</li>`).join("")}</ul>` : `<div class="empty">${esc(t("me.promoEmpty"))}</div>`}
+      <h2 style="margin-top:14px">${esc(t("me.featT"))}</h2>${featured.length ? `<p>${featured.map(esc).join(", ")}</p>` : `<div class="empty">${esc(t("me.featEmpty"))}</div>`}</div>
+    </div>
+    <div class="notice blue" style="margin-top:14px">${esc(t("me.note"))}</div>`;
+  $("#heroSave").addEventListener("click", async () => {
+    try { await api("/api/admin/settings", {method: "PUT", body: {hero_image: $("#heroUrl").value.trim() || null}}); showView("media"); }
+    catch (e) { showErr($("#mediaErr"), e); }
+  });
+}
+
+/* ---------- Settings (with D6 warning) ---------- */
+async function viewSettings(v) {
+  const d = await api("/api/admin/settings").catch(() => ({}));
+  const s = d.settings || d;
+  const gh = s.global_hours || {};
+  const contact = s.contact || {};
+  const delivery = s.delivery || {};
+  const isOwner = ME.role === "owner";
+  const sKeys = Object.keys(s).filter(k => k !== "shop_types");
+  v.innerHTML = head(t("v.settings.t"), t("v.settings.s"))
+    + perUserSettingsHtml()
+    + `<div class="notice amber" style="margin-top:14px">${esc(t("set.d6"))}</div>`
+    + `<div class="grid cards2" style="margin-top:14px">
+      <div class="card"><h2>${esc(t("set.hours.t"))}</h2>
+        <div class="form-grid"><div><label class="flabel">${esc(t("set.hours.open"))}</label><input id="setOpen" value="${esc(gh.open || "06:00")}" ${isOwner ? "" : "disabled"}></div>
+        <div><label class="flabel">${esc(t("set.hours.close"))}</label><input id="setClose" value="${esc(gh.close || "22:00")}" ${isOwner ? "" : "disabled"}></div>
+        <div class="full">${isOwner ? `<button class="btn sm" id="hoursSave">${esc(t("common.save"))}</button>` : `<span class="muted small">${esc(t("set.hours.ownerOnly"))}</span>`}</div></div>
+        <div class="err-text" id="setErr"></div><div class="ok-text" id="setOk"></div></div>
+      <div class="card"><h2>${esc(t("set.kv.t"))}</h2><dl class="kv">${sKeys.length ? sKeys.map(k => `<dt>${esc(k)}</dt><dd>${esc(typeof s[k] === "string" ? s[k] : JSON.stringify(s[k]))}</dd>`).join("") : "<dd>" + esc(t("common.empty")) + "</dd>"}</dl></div>
+    </div>
+    <div class="card" style="margin-top:14px"><h2>${esc(t("set.facts.t"))}</h2>
+      <div class="notice amber">${esc(t("set.facts.warn"))}</div>
+      <div class="form-grid">
+        <div><label class="flabel">${esc(t("set.facts.phone"))}</label><input id="ctPhone" value="${esc(contact.phone || "")}" ${isOwner ? "" : "disabled"}></div>
+        <div><label class="flabel">${esc(t("set.facts.telegram"))}</label><input id="ctTelegram" value="${esc(contact.telegram || "")}" ${isOwner ? "" : "disabled"}></div>
+        <div><label class="flabel">${esc(t("set.facts.fee"))}</label><input id="dlFee" type="number" min="0" step="1" value="${esc(delivery.min_fee_baht != null ? delivery.min_fee_baht : 30)}" ${isOwner ? "" : "disabled"}></div>
+        <div class="full">${isOwner ? `<button class="btn sm" id="ctSave">${esc(t("common.save"))}</button>` : `<span class="muted small">${esc(t("set.hours.ownerOnly"))}</span>`}</div>
+      </div><div class="err-text" id="ctErr"></div><div class="ok-text" id="ctOk"></div></div>
+    <div class="card" style="margin-top:14px"><h2>${esc(t("set.types.t"))}</h2>
+      <p class="muted">${esc(t("set.types.h"))}</p>
+      <div class="notice blue">${esc(t("set.types.notice"))}</div>
+      <div id="stList"><div class="empty">${esc(t("common.loading"))}</div></div>
+      ${isOwner ? `<h3 style="margin-top:16px" id="stFormTitle">${esc(t("set.types.addT"))}</h3>
+      <div class="form-grid">
+        <div><label class="flabel">${esc(t("set.types.nameMy"))}</label><input id="stNameMy" placeholder="${esc(t("set.types.phMy"))}"></div>
+        <div><label class="flabel">${esc(t("set.types.nameEn"))}</label><input id="stNameEn" placeholder="${esc(t("set.types.phEn"))}"></div>
+        <div class="full"><button class="btn sm" id="stSave">${esc(t("common.save"))}</button> <button class="btn ghost sm hidden" id="stCancel">${esc(t("common.cancel"))}</button></div>
+      </div><div class="err-text" id="stErr"></div><div class="ok-text" id="stOk"></div>` : `<p class="muted small">${esc(t("set.hours.ownerOnly"))}</p>`}
+    </div>`
+    + (isOwner ? `
+    <div class="card" style="margin-top:14px"><h2>${esc(t("set.backup.t"))}</h2>
+      <p class="muted">${esc(t("set.backup.h"))}</p>
+      <div class="row-flex" style="gap:10px"><button class="btn sm" id="bkExport" style="flex:0 0 auto">${esc(t("set.backup.export"))}</button>
+      <label class="btn ghost sm" for="bkImportFile" style="flex:0 0 auto">${esc(t("set.backup.import"))}</label>
+      <input type="file" id="bkImportFile" accept="application/json,.json" class="hidden"></div>
+      <div class="err-text" id="bkErr"></div><div class="ok-text" id="bkOk"></div><div id="bkResults"></div></div>` : "");
+  bindPerUserSettings(v);
+  const btn = $("#hoursSave");
+  if (btn) btn.addEventListener("click", async () => {
+    try { await api("/api/admin/settings", {method: "PUT", body: {global_hours: {open: $("#setOpen").value.trim(), close: $("#setClose").value.trim()}}}); $("#setOk").textContent = t("set.hours.saved"); }
+    catch (e) { showErr($("#setErr"), e); }
+  });
+  const ctSave = $("#ctSave");
+  if (ctSave) ctSave.addEventListener("click", async () => {
+    const body = {contact: {phone: $("#ctPhone").value.trim(), telegram: $("#ctTelegram").value.trim()}};
+    const fee = $("#dlFee").value.trim();
+    if (fee !== "") body.delivery = {min_fee_baht: Number(fee)};
+    try { await api("/api/admin/settings", {method: "PUT", body}); $("#ctOk").textContent = t("set.hours.saved"); }
+    catch (e) { showErr($("#ctErr"), e); }
+  });
+  // --- Shop types (flat list; owner manages, every role reads) ---
+  let stEditKey = null;
+  async function loadShopTypes() {
+    const d = await api("/api/admin/shop-types").catch(e => { showErr($("#stErr"), e); return null; });
+    if (!d) return;
+    const types = (d.types || []).slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    const wrap = $("#stList");
+    wrap.innerHTML = types.length ? `<ul class="checklist">${types.map(ty => `<li style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>${esc(typeName(ty))}</b>${LANG === "my" && ty.name_en ? `<span class="muted small">${esc(ty.name_en)}</span>` : ""}`
+      + (ty.enabled ? `<span class="pill green">${esc(t("set.shop.openNow"))}</span>` : `<span class="pill grey">${esc(t("set.shop.closedNow"))}</span>`)
+      + (isOwner ? `<span style="margin-left:auto;display:flex;gap:6px"><button class="btn ghost sm" data-st-edit="${esc(ty.key)}">${esc(t("set.types.editType"))}</button><button class="btn ghost sm" data-st-toggle="${esc(ty.key)}" data-st-enabled="${ty.enabled ? 0 : 1}">${ty.enabled ? esc(t("set.types.disable")) : esc(t("set.types.enable"))}</button><button class="btn danger sm" data-st-del="${esc(ty.key)}">${esc(t("set.types.del"))}</button></span>` : "")
+      + `</li>`).join("")}</ul>` : `<div class="empty">${esc(t("common.empty"))}</div>`;
+    wrap.querySelectorAll("[data-st-edit]").forEach(b => b.addEventListener("click", () => {
+      const ty = types.find(x => x.key === b.dataset.stEdit);
+      if (!ty) return;
+      stEditKey = ty.key;
+      $("#stNameMy").value = ty.name_my; $("#stNameEn").value = ty.name_en || "";
+      $("#stFormTitle").textContent = t("set.types.editT") + typeName(ty);
+      $("#stSave").textContent = t("common.save"); $("#stCancel").classList.remove("hidden");
+    }));
+    wrap.querySelectorAll("[data-st-toggle]").forEach(b => b.addEventListener("click", async () => {
+      try { await api(`/api/admin/shop-types/${encodeURIComponent(b.dataset.stToggle)}`, {method: "PUT", body: {enabled: b.dataset.stEnabled === "1"}}); showView("settings"); }
+      catch (e) { showErr($("#stErr"), e); }
+    }));
+    wrap.querySelectorAll("[data-st-del]").forEach(b => b.addEventListener("click", async () => {
+      if (!confirm(t("set.types.confirmDel"))) return;
+      try { await api(`/api/admin/shop-types/${encodeURIComponent(b.dataset.stDel)}`, {method: "DELETE"}); showView("settings"); }
+      catch (e) { showErr($("#stErr"), e); }
+    }));
+  }
+  loadShopTypes();
+  const stSave = $("#stSave");
+  if (stSave) stSave.addEventListener("click", async () => {
+    const body = {name_my: $("#stNameMy").value.trim(), name_en: $("#stNameEn").value.trim()};
+    try {
+      if (stEditKey) { await api(`/api/admin/shop-types/${encodeURIComponent(stEditKey)}`, {method: "PUT", body}); $("#stOk").textContent = t("common.saved"); }
+      else { await api("/api/admin/shop-types", {method: "POST", body}); $("#stOk").textContent = t("common.saved"); }
+      showView("settings");
+    } catch (e) { showErr($("#stErr"), e); }
+  });
+  const stCancel = $("#stCancel");
+  if (stCancel) stCancel.addEventListener("click", () => showView("settings"));
+  // --- Settings backup (owner only) ---
+  const bkExport = $("#bkExport");
+  if (bkExport) bkExport.addEventListener("click", async () => {
+    try {
+      const dd = await api("/api/admin/settings");
+      const ss = dd.settings || dd;
+      const blob = new Blob([JSON.stringify(ss, null, 2)], {type: "application/json"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "safe-deli-settings.json"; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      $("#bkOk").textContent = t("common.saved");
+    } catch (e) { showErr($("#bkErr"), e); }
+  });
+  const bkImport = $("#bkImportFile");
+  if (bkImport) bkImport.addEventListener("change", async e => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const KNOWN = ["global_hours", "delivery", "banners", "registration_form", "hero_image", "promo_slots", "featured_shop_ids", "contact"];
+    try {
+      const obj = JSON.parse(await f.text());
+      if (!obj || typeof obj !== "object" || Array.isArray(obj)) throw new Error(t("set.backup.errJson"));
+      const bad = Object.keys(obj).filter(k => KNOWN.indexOf(k) === -1);
+      if (bad.length) throw new Error(t("set.backup.errKey").replace("{n}", bad.join(", ")));
+      const results = [];
+      for (const k of Object.keys(obj)) {
+        try {
+          const body = {}; body[k] = obj[k];
+          await api("/api/admin/settings", {method: "PUT", body});
+          results.push(k + ": OK");
+        } catch (err) {
+          results.push(k + ": FAIL — " + (err.message || err));
+        }
+      }
+      BK_RESULTS = `<ul class="checklist">${results.map(r => `<li>${esc(r)}</li>`).join("")}</ul>`;
+      showView("settings");
+    } catch (err) { showErr($("#bkErr"), err); }
+  });
+  if (BK_RESULTS) { const br = $("#bkResults"); if (br) br.innerHTML = BK_RESULTS; BK_RESULTS = null; }
+}
+
+/* ---------- Merchant preferences (language / theme / notifications / refresh / page size only) ---------- */
+async function viewPrefs(v) {
+  v.innerHTML = head(t("v.prefs.t"), t("v.prefs.s")) + perUserSettingsHtml();
+  bindPerUserSettings(v);
+}
+
+/* ---------- Admin users ---------- */
+async function viewUsers(v) {
+  const d = await api("/api/admin/users");
+  const shops = await api("/api/admin/shops?limit=100").catch(() => ({shops: []}));
+  const rows = (d.users || []).map(u => `<tr><td><b>${esc(u.username)}</b><br><span class="muted small">${esc(u.display_name || "")}</span></td>
+    <td><span class="pill purple">${esc(u.role)}</span>${u.shop_id ? `<br><span class="muted small">${esc(t("us.shopN").replace("{n}", String(u.shop_id)))}</span>` : ""}</td>
+    <td>${u.is_active ? `<span class="pill green">${esc(t("us.active"))}</span>` : `<span class="pill grey">${esc(t("us.inactive"))}</span>`}</td>
+    <td><span class="muted small">${fmtDate(u.created_at)}</span></td></tr>`).join("");
+  v.innerHTML = head(t("v.users.t"), t("v.users.s"))
+    + `<div class="card">${tableOrEmpty(`<th>${esc(t("us.th.user"))}</th><th>${esc(t("us.th.role"))}</th><th>${esc(t("ov.th.status"))}</th><th>${esc(t("sh.th.since"))}</th>`, rows)}
+      <h3 style="margin-top:16px">${esc(t("us.newT"))}</h3>
+      <div class="form-grid">
+        <div><label class="flabel">Username</label><input id="nuUser" placeholder="${esc(t("us.ph.user"))}"></div>
+        <div><label class="flabel">${esc(t("us.f.name"))}</label><input id="nuName"></div>
+        <div><label class="flabel">${esc(t("us.th.role"))}</label><select id="nuRole"><option value="support">support</option><option value="finance">finance</option><option value="operations">operations</option><option value="merchant">merchant</option><option value="owner">owner</option></select></div>
+        <div><label class="flabel">${esc(t("us.f.pass"))}</label><input id="nuPass" type="password"></div>
+        <div id="nuShopWrap" class="hidden"><label class="flabel">${esc(t("us.f.shop"))}</label><select id="nuShop">${(shops.shops || []).map(s2 => `<option value="${s2.id}">${esc(s2.name)}</option>`).join("")}</select></div>
+        <div class="full"><button class="btn sm" id="nuSave">${esc(t("us.create"))}</button></div>
+      </div><div class="err-text" id="nuErr"></div><div class="ok-text" id="nuOk"></div></div>`;
+  $("#nuRole").addEventListener("change", e => $("#nuShopWrap").classList.toggle("hidden", e.target.value !== "merchant"));
+  $("#nuSave").addEventListener("click", async () => {
+    const body = {username: $("#nuUser").value.trim(), display_name: $("#nuName").value.trim(), role: $("#nuRole").value, password: $("#nuPass").value};
+    if (body.role === "merchant") body.shop_id = Number($("#nuShop").value);
+    try { await api("/api/admin/users", {method: "POST", body}); $("#nuOk").textContent = t("us.created"); showView("users"); }
+    catch (e) { showErr($("#nuErr"), e); }
+  });
+}
+
+/* ---------- Audit log ---------- */
+async function viewAudit(v) {
+  const d = await api("/api/admin/audit-log?limit=50");
+  const rows = (d.entries || d.audit_log || []).map(a => `<tr><td><span class="muted small">${fmtDate(a.created_at)}</span></td>
+    <td>${esc(a.actor_id || a.actor_type || "")}</td><td><b>${esc(a.action)}</b><br><span class="muted small">${esc(a.entity_type || "")} ${esc(a.entity_id || "")}</span></td>
+    <td><span class="muted small">${esc(typeof a.details === "string" ? a.details : JSON.stringify(a.details || {}))}</span></td></tr>`).join("");
+  v.innerHTML = head(t("v.audit.t"), t("v.audit.s"))
+    + `<div class="card">${tableOrEmpty(`<th>${esc(t("dl.th.date"))}</th><th>${esc(t("au.th.actor"))}</th><th>${esc(t("au.th.action"))}</th><th>${esc(t("au.th.details"))}</th>`, rows)}</div>`;
+}
+
+/* ---------- Merchant views ---------- */
+async function viewMerchantOverview(v) {
+  const s = await api("/api/merchant/summary");
+  const settled = s.settled_by_currency || [];
+  v.innerHTML = head(t("v.moverview.t") + (s.shop.name ? " — " + s.shop.name : ""), t("v.moverview.s"))
+    + `<div class="grid kpis">
+      <div class="kpi"><div class="lbl">${esc(t("ov.kpi.ordersToday"))}</div><div class="val">${fmtNum(s.orders_today)}</div><div class="trend">${esc(t("mo.tr.total").replace("{n}", fmtNum(s.orders_total)))}</div></div>
+      <div class="kpi"><div class="lbl">${esc(t("mo.kpi.products"))}</div><div class="val">${fmtNum(s.products_total)}</div><div class="trend">${esc(t("mo.tr.avail").replace("{n}", fmtNum(s.products_available)))}</div></div>
+      <div class="kpi"><div class="lbl">${esc(t("mo.kpi.settled"))}</div><div class="val">${settled.length ? settled.map(x => fmtMoney(x.total, x.currency)).join(" + ") : "—"}</div><div class="trend">${settled.map(x => t("mo.tr.times").replace("{n}", String(x.count)).replace("{c}", x.currency)).join(", ") || esc(t("mo.none"))}</div></div>
+      <div class="kpi"><div class="lbl">${esc(t("mo.kpi.pending"))}</div><div class="val">${fmtNum(s.pending_settlement_count)}</div><div class="trend">${esc(t("mo.tr.pending"))}</div></div>
+      <div class="kpi"><div class="lbl">${esc(t("mo.kpi.shopStatus"))}</div><div class="val" style="font-size:20px">${s.shop.is_open ? esc(t("set.shop.openNow")) : esc(t("set.shop.closedNow"))}</div><div class="trend">${esc(s.shop.status || "")}</div></div>
+    </div>`
+    + `<div class="notice blue" style="margin-top:14px">${esc(t("mo.notice"))}</div>`
+    + `<div class="card" style="margin-top:14px"><h2>${esc(t("ov.latestOrders"))}</h2>${tableOrEmpty(`<th>${esc(t("ov.th.order"))}</th><th>${esc(t("ov.th.customer"))}</th><th>${esc(t("ov.th.status"))}</th><th>${esc(t("ord.th.fee"))}</th>`,
+      (s.recent_orders || []).map(o => `<tr><td><b>${esc(o.order_no)}</b><br><span class="muted small">${fmtDate(o.created_at)}</span></td><td>${esc(o.customer_name || "")}</td><td>${statusPill(o.order_status)}</td><td>${o.delivery_fee != null ? "฿" + fmtNum(o.delivery_fee) : "—"}</td></tr>`).join(""))}</div>`;
+}
+async function viewMerchantOrders(v) {
+  const d = await api("/api/admin/orders?limit=25");
+  const rows = (d.orders || []).map(o => `<tr><td><b>${esc(o.order_no)}</b>${o.is_test ? ' <span class="pill test">TEST</span>' : ""}<br><span class="muted small">${fmtDate(o.created_at)}</span></td>
+    <td>${esc(o.customer_name || "")}</td><td>${esc(o.item || "")}</td><td>${statusPill(o.order_status)}</td><td>${o.delivery_fee != null ? "฿" + fmtNum(o.delivery_fee) : "—"}</td></tr>`).join("");
+  v.innerHTML = head(t("v.morders.t"), t("v.morders.s"))
+    + `<div class="card">${tableOrEmpty(`<th>${esc(t("ov.th.order"))}</th><th>${esc(t("ov.th.customer"))}</th><th>${esc(t("prod.th.product"))}</th><th>${esc(t("ov.th.status"))}</th><th>${esc(t("ord.th.fee"))}</th>`, rows)}
+      <div style="margin-top:12px"><button class="btn ghost sm" id="mCsv">${esc(t("ord.csv"))}</button></div><div class="err-text" id="mErr"></div></div>`;
+  $("#mCsv").addEventListener("click", async () => { try { await apiCsv("/api/merchant/reports/sales.csv", "safe-deli-my-sales.csv"); } catch (e) { showErr($("#mErr"), e); } });
+}
+async function viewMerchantProducts(v) {
+  const d = await api("/api/admin/products?limit=50");
+  const rows = (d.products || []).map(p => `<tr><td><b>${esc(p.name)}</b><br><span class="muted small">${esc(p.description || "")}</span></td>
+    <td>${p.price != null ? "฿" + fmtNum(p.price) : "—"}</td><td>${p.is_available ? `<span class="pill green">${esc(t("prod.available"))}</span>` : `<span class="pill grey">${esc(t("prod.unavailable"))}</span>`}</td>
+    <td><button class="btn ghost sm" data-toggle="${p.id}" data-avail="${p.is_available ? 0 : 1}">${p.is_available ? esc(t("mprod.makeUnavail")) : esc(t("mprod.makeAvail"))}</button></td></tr>`).join("");
+  v.innerHTML = head(t("v.mproducts.t"), t("v.mproducts.s"))
+    + `<div class="card">${tableOrEmpty(`<th>${esc(t("prod.th.product"))}</th><th>${esc(t("prod.th.price"))}</th><th>${esc(t("ov.th.status"))}</th><th></th>`, rows)}<div class="err-text" id="mpErr"></div></div>`;
+  v.querySelectorAll("button[data-toggle]").forEach(b => b.addEventListener("click", async () => {
+    try { await api(`/api/admin/products/${b.dataset.toggle}`, {method: "PUT", body: {is_available: b.dataset.avail === "1"}}); showView("mproducts"); }
+    catch (e) { showErr($("#mpErr"), e); }
+  }));
+}
+async function viewPayouts(v) {
+  const p = await api("/api/merchant/payouts");
+  const settledRows = (p.settled || []).map(r => `<tr><td><span class="muted small">${fmtDate(r.created_at)}</span></td><td>${fmtMoney(r.amount, r.currency)}</td>
+    <td>${statusPill(r.status)}</td><td><span class="muted small">${esc(r.note || "")}</span></td></tr>`).join("");
+  const pendRows = (p.pending || []).map(r => `<tr><td><b>${esc(r.order_no)}</b><br><span class="muted small">${fmtDate(r.created_at)}</span></td>
+    <td>${esc(r.customer_name || "")}</td><td>${r.items_total != null ? fmtMoney(r.items_total, p.currency_hint || "THB") : esc(t("po.ownerConfirm"))}</td></tr>`).join("");
+  v.innerHTML = head(t("v.payouts.t"), t("v.payouts.s"))
+    + `<div class="notice amber"><b>${esc(t("po.rulesT"))}:</b> ${esc(t("po.rulesNote"))}</div>`
+    + `<div class="grid cards2"><div class="card"><h2>${esc(t("po.settledT"))}</h2>${tableOrEmpty(`<th>${esc(t("dl.th.date"))}</th><th>${esc(t("fin.f.amount"))}</th><th>${esc(t("ov.th.status"))}</th><th>${esc(t("po.th.note"))}</th>`, settledRows)}</div>
+      <div class="card"><h2>${esc(t("po.pendingT"))}</h2>${tableOrEmpty(`<th>${esc(t("ov.th.order"))}</th><th>${esc(t("ov.th.customer"))}</th><th>${esc(t("fin.f.amount"))}</th>`, pendRows)}
+      <div class="muted small" style="margin-top:8px">${esc(t("po.curHint"))}: ${p.currency_hint ? esc(p.currency_hint) + " " + (p.currency_hint === "THB" ? esc(t("po.curThb")) : esc(t("po.curMmk"))) : esc(t("po.curNone"))}</div></div></div>`;
+}
+
+/* ---------- views registry ---------- */
+const VIEWS = {overview: viewOverview, orders: viewOrders, reviews: viewReviews, shops: viewShops,
+  products: viewProducts, customers: viewCustomers, delivery: viewDelivery, riders: viewRiders,
+  finance: viewFinance, media: viewMedia, settings: viewSettings, users: viewUsers, audit: viewAudit,
+  moverview: viewMerchantOverview, morders: viewMerchantOrders, mproducts: viewMerchantProducts, payouts: viewPayouts, prefs: viewPrefs};
+
+/* ---------- search filter (current view's table rows) ---------- */
+function applySearchFilter() {
+  const q = ($("#topSearch").value || "").trim().toLowerCase();
+  document.querySelectorAll("#view tbody tr").forEach(tr => {
+    tr.style.display = !q || tr.textContent.toLowerCase().includes(q) ? "" : "none";
+  });
+}
+$("#topSearch").addEventListener("input", applySearchFilter);
+$("#hamb").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
+$("#logoutBtn").addEventListener("click", () => { stopRefreshTimer(); TOKEN = null; ME = null; $("#app").classList.add("hidden"); $("#loginWrap").classList.remove("hidden"); $("#password").value = ""; $("#password").type = "password"; $("#pwEye").textContent = "👁️"; });
+
+/* show / hide password (eye) */
+$("#pwEye").addEventListener("click", () => { const p = $("#password"); const show = p.type === "password"; p.type = show ? "text" : "password"; $("#pwEye").textContent = show ? "🙈" : "👁️"; $("#pwEye").setAttribute("aria-label", show ? "Hide password" : "Show password"); p.focus(); });
+
+/* ---------- login ---------- */
+$("#loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn = $("#loginBtn"); btn.disabled = true; $("#loginErr").textContent = "";
+  try {
+    const d = await api("/api/admin/login", {method: "POST", body: {username: $("#username").value.trim(), password: $("#password").value}});
+    TOKEN = d.token || d.session_token;
+    if (!TOKEN) throw new Error(t("login.errToken"));
+    ME = await api("/api/admin/me");
+    try { const h = await api("/health"); $("#apiState").textContent = t("top.apiOk"); } catch (err) { $("#apiState").textContent = t("top.apiFail"); }
+    $("#loginWrap").classList.add("hidden"); $("#app").classList.remove("hidden");
+    startRefreshTimer();
+    showView(ME.role === "merchant" ? "moverview" : "overview");
+  } catch (err) {
+    $("#loginErr").textContent = err.status === 401 ? t("login.err401") : t("common.err") + " — " + (err.message || err);
+  } finally { btn.disabled = false; }
+});
+</script>
+</body>
+</html>
