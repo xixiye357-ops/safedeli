@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <!--
-  Safe Deli Mini App v19.31 (2026-11-18 — SLIMMER GOLD TILES, Min 16:17:
-  the gold quick-tiles card is slimmer (40px circles, ~80px tall
-  instead of ~99px); the categories card stays original dark
-  purple and the greeting stays gold italic serif. Replaces
-  v19.30, which was approved but never uploaded.)
+  Safe Deli Mini App v19.33 (2026-11-18 — COMPACT HEADER, Min 16:43:
+  the gold greeting truncated to "Welcome to Tachil..." on his
+  ~360px phone, so the header is rearranged on narrow screens
+  (<=390px: logo 36->32px, buttons 32->30px, gaps 6->3px,
+  greeting 15->14px; <=340px: it wraps to two lines at 13px).
+  Buttons stay big enough to tap (Min 16:45). Replaces v19.32,
+  approved but never uploaded.)
   Safe Deli Mini App v19.30 (2026-11-18 — GOLD TILES + GOLD GREETING, Min 16:04/16:10:
   the quick-tiles card is gold (labels dark purple so they read), the
   categories card stays its original dark purple, and "Welcome to
@@ -1358,6 +1360,20 @@ a{color:var(--green2)}
 .appbar .greet{font-style:italic; font-family:Georgia,'Times New Roman',serif; color:#FFD34D; text-shadow:0 0 10px rgba(251,191,36,.45)}
 .appbar .icon-btn.on{color:#FFD34D; border-color:rgba(251,191,36,.9)}
 .appbar .icon-btn.muted{opacity:.55}
+/* v19.33 COMPACT HEADER (Min 2026-11-18 16:43): on narrow phones
+   the greeting truncated, so the header is rearranged to give it
+   room — tighter gaps, smaller logo + buttons, and a slightly
+   smaller greeting; on tiny phones it wraps to two lines. */
+@media (max-width:390px){
+  .appbar-row{gap:3px}
+  .appbar .brand-mark img{width:32px; height:32px}
+  .appbar .icon-btn{width:30px; height:30px; flex:0 0 30px}
+  .appbar .greet{font-size:14px}
+}
+@media (max-width:340px){
+  .appbar .greet{white-space:normal; line-height:1.15; font-size:13px}
+}
+
 /* --- (b) top search (hidden until 🔍) --- */
 #topSearch{margin:10px 0 0}
 #topSearch .searchbar{margin-top:0}
@@ -2414,7 +2430,14 @@ function maybeAskCustomerLocation() {
   if (_locAskShown) return;
   if (getCustomerLoc()) return;
   _locAskShown = true;
-  openLocAsk();
+  /* v19.32 AUTO-ASK (owner 2026-11-18 16:38 — "permission
+     တန်းတောင်းမှာပါ"): no tap — ask the permission directly
+     on entry. The system prompt appears by itself; Allow
+     brings the real location in with no app-button tap. A
+     past denial fails at once (the system never prompts
+     twice) and the denied hint stays the path to settings. */
+  markCustomerLocAsked();
+  fetchCustomerLocation();
 }
 function openLocAsk() {
   /* v9: location is REQUIRED (owner 2026-11-11) — share location, or
