@@ -270,8 +270,10 @@ label.flabel{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
 "use strict";
 /* Safe Deli Unified Dashboard — single file, no demo data.
    Every number, name and row comes from the API. Empty states are
-   shown honestly when the API returns nothing. Token lives in memory
-   only (never localStorage / cookies). */
+   shown honestly when the API returns nothing. Login token is saved
+   in localStorage on this device (Min asked 2026-11-18) so a refresh
+   keeps the login; logout clears it. The server session still
+   expires 12h after login. */
 let TOKEN = null, ME = null, CURRENT_VIEW = null, LAST_TABLE_ROWS = [];
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -1320,6 +1322,8 @@ let BK_RESULTS = null;
 let REFRESH_TIMER = null;
 function lsGet(k, dflt) { try { return localStorage.getItem(k) || dflt; } catch (e) { return dflt; } }
 function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
+const DASH_TOKEN_KEY = "safedeli_dash_token";
 function getTheme() { return lsGet("safedeli_dash_theme", "light") === "dark" ? "dark" : "light"; }
 function applyTheme(mode) {
   if (mode !== "dark") mode = "light";
@@ -2520,7 +2524,7 @@ function applySearchFilter() {
 }
 $("#topSearch").addEventListener("input", applySearchFilter);
 $("#hamb").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
-$("#logoutBtn").addEventListener("click", () => { stopRefreshTimer(); TOKEN = null; ME = null; $("#app").classList.add("hidden"); $("#loginWrap").classList.remove("hidden"); $("#password").value = ""; $("#password").type = "password"; $("#pwEye").textContent = "👁️"; });
+$("#logoutBtn").addEventListener("click", () => { try { api("/api/admin/logout", {method: "POST"}).catch(() => {}); } catch (e) {} lsDel(DASH_TOKEN_KEY); stopRefreshTimer(); TOKEN = null; ME = null; $("#app").classList.add("hidden"); $("#loginWrap").classList.remove("hidden"); $("#password").value = ""; $("#password").type = "password"; $("#pwEye").textContent = "👁️"; });
 
 /* show / hide password (eye) */
 $("#pwEye").addEventListener("click", () => { const p = $("#password"); const show = p.type === "password"; p.type = show ? "text" : "password"; $("#pwEye").textContent = show ? "🙈" : "👁️"; $("#pwEye").setAttribute("aria-label", show ? "Hide password" : "Show password"); p.focus(); });
@@ -2533,6 +2537,7 @@ $("#loginForm").addEventListener("submit", async e => {
     const d = await api("/api/admin/login", {method: "POST", body: {username: $("#username").value.trim(), password: $("#password").value}});
     TOKEN = d.token || d.session_token;
     if (!TOKEN) throw new Error(t("login.errToken"));
+    lsSet(DASH_TOKEN_KEY, TOKEN);
     ME = await api("/api/admin/me");
     try { const h = await api("/health"); $("#apiState").textContent = t("top.apiOk"); } catch (err) { $("#apiState").textContent = t("top.apiFail"); }
     $("#loginWrap").classList.add("hidden"); $("#app").classList.remove("hidden");
@@ -2542,6 +2547,26 @@ $("#loginForm").addEventListener("submit", async e => {
     $("#loginErr").textContent = err.status === 401 ? t("login.err401") : t("common.err") + " — " + (err.message || err);
   } finally { btn.disabled = false; }
 });
+
+/* ---------- restore saved login (Min 2026-11-18) ---------- */
+/* If a token was saved on this device, try it: a valid session skips
+   the login screen after a refresh; an expired/revoked token (the
+   server session lasts 12h) falls back to the login screen. */
+(async function restoreSavedLogin() {
+  const saved = lsGet(DASH_TOKEN_KEY, null);
+  if (!saved) return;
+  TOKEN = saved;
+  try {
+    ME = await api("/api/admin/me");
+    try { const h = await api("/health"); $("#apiState").textContent = t("top.apiOk"); } catch (err) { $("#apiState").textContent = t("top.apiFail"); }
+    $("#loginWrap").classList.add("hidden"); $("#app").classList.remove("hidden");
+    startRefreshTimer();
+    showView(ME.role === "merchant" ? "moverview" : "overview");
+  } catch (err) {
+    TOKEN = null; ME = null;
+    lsDel(DASH_TOKEN_KEY);
+  }
+})();
 </script>
 </body>
 </html>
