@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <!--
-  Safe Deli Mini App v19.35 (2026-11-18 — TAP SOUND, Min 17:27:
-  a soft blip on every tap (hooked on click, so scrolling stays
-  silent). The speaker button mutes the SONG only — the tap
-  sound always plays, even when muted, so the app never feels
-  boring (Min 17:28–17:29). Replaces v19.34, approved but not
-  yet uploaded; live is still v19.33.)
+  Safe Deli Mini App v19.36 (2026-11-18 — TAP SOUND REMOVED,
+  Min 19:54: Min decided the chirp goes — taps are silent
+  again. The SONG is untouched: it still starts on the first
+  tap, the speaker button still mutes it. Replaces v19.35,
+  live since 2026-11-18 17:41.)
   Safe Deli Mini App v19.30 (2026-11-18 — GOLD TILES + GOLD GREETING, Min 16:04/16:10:
   the quick-tiles card is gold (labels dark purple so they read), the
   categories card stays its original dark purple, and "Welcome to
@@ -4546,24 +4545,6 @@ function muteMusicForOrder() {
   setMusicOn(false);
 }
 document.addEventListener("pointerdown", startMusic);
-/* v19.35 TAP SOUND (Min 2026-11-18 17:27 — a sound on every tap).
-   A CUTE two-note chirp (C6 -> G6, 0.14 s), embedded as a data
-   URI (958 B). Hooked on "click", not pointerdown, so scrolling
-   does not make noise — only real taps do. The speaker button
-   mutes the SONG only: the tap sound ALWAYS plays, even when
-   muted, so the app never feels dead/boring (Min 17:28-17:29:
-   မပျင်းရအောင်ပါ). */
-var TAP_SRC = "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjYyLjEyLjEwMgAAAAAAAAAAAAAA//tAwAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAHAAADkQBQUFBQUFBQUFBQUFBQUG1tbW1tbW1tbW1tbW1tioqKioqKioqKioqKioqoqKioqKioqKioqKioqKjFxcXFxcXFxcXFxcXFxeLi4uLi4uLi4uLi4uLi//////////////////8AAAAATGF2YzYyLjI4AAAAAAAAAAAAAAAAJAUiAAAAAAAAA5FHcianAAAAAAD/+xDEAAAEcCNfVDCAMKWJaUM0cABBAF05ZAAHd3fd9CrgYGBiw8oEKB4Pg/qBB2XD/IbuX8McBvfZnX//onPr8o+JgtQAjR00TNDhR23ASAT4DR4bfjY00d8RBU75URHv1v//+syJB//7EsQDA8VULyQd54AgnwXjAa9tRJgxfYwDwLjBBAuMDMKQwd2bDDaDEMIsDYwHQGggAMScGKLajN///8MrmLqmBBGRKGeVnDxGFwLqbm9qZm1CHnIpBlgePAS+UVlBWHYV///26JvkAf/7EMQDg8UsLxQNe2ogrYXkgr2ABBBkOKgq+fJYYmoc53DOmmsCFaf8aG0j5mA4YUJAUJQmKH4///+oiutmafAEAcMBAAswHQEjIrZoMMASgwrgVjA+AsIgDFUAMRIhvOl4fakktnOk//sSxAKABMBNXhkXgAC4B+RDqeAE1gVpqWy8tCWOD5DeCSCio/vu1tf+99whLlHRKEuniL/t/3UkYkBFAihgMBgBAmA3YwwNwhDCrA9NfkwAIE4MEkEowHQDAUAcqqmKzqLUvP4sWmmW//sQxAKDxKA3GgDvymioB+JAD2TkRGB15igaWaMBEBQwWA5Tn8UVMJ4E0wAwAEAKxpbLgbL8sbVK/xf0Rh4GCKAsYEgC5gXArmDONoei63hhvhJHRaY5hdVc0dtRW1z8e2Z6BUrjEpH/+xLEBIPFQD8SAG/G4LWIIgA9dUk0gHMlEDAjBWMDock4YjrTB6CdMA8C4GAGoIl8wBOSK914lNCDsLCJMvepwZOAPewchKorjjpHhdFGi4aCEHxQEEbXGl7ryzCv0BLFmcNqqw1JnAb/+xDEAoPEjD8GAeEpCAAANIAAAATS0E/FZc5KmSXoIGCYFWZiEUbByUvobDKaFRoUFkyTdUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQ==";
-var tapAudio = null;
-function tapSound() {
-  try {
-    if (!tapAudio) { tapAudio = new Audio(TAP_SRC); tapAudio.volume = 0.35; }
-    tapAudio.currentTime = 0;
-    var p = tapAudio.play();
-    if (p && p.catch) p.catch(function () {});
-  } catch (e) {}
-}
-document.addEventListener("click", tapSound);
 
 /* v19.34 WELCOME BANNER (Min 2026-11-18 17:01): show on entry;
    the Close tap is the first in-app gesture, so it starts the
