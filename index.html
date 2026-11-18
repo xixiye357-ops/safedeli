@@ -1,5 +1,14 @@
 <!DOCTYPE html>
 <!--
+  Safe Deli Mini App v19.31 (2026-11-18 — SLIMMER GOLD TILES, Min 16:17:
+  the gold quick-tiles card is slimmer (40px circles, ~80px tall
+  instead of ~99px); the categories card stays original dark
+  purple and the greeting stays gold italic serif. Replaces
+  v19.30, which was approved but never uploaded.)
+  Safe Deli Mini App v19.30 (2026-11-18 — GOLD TILES + GOLD GREETING, Min 16:04/16:10:
+  the quick-tiles card is gold (labels dark purple so they read), the
+  categories card stays its original dark purple, and "Welcome to
+  Tachileik" is gold italic serif.)
   Safe Deli Mini App v19.29 (2026-11-18 — BACKGROUND MUSIC, Min 15:21:
   Min's song (safedeli-song.m4a, next to this file) starts on the
   visitor's first tap and loops; the speaker button in the header turns
@@ -1346,6 +1355,7 @@ a{color:var(--green2)}
 .promo-banner .promo-img{position:static; width:100%; height:auto; display:block; -webkit-mask-image:none; mask-image:none}
 /* --- (a) header: 15px greeting + gold search --- */
 .appbar .greet{font-size:15px}
+.appbar .greet{font-style:italic; font-family:Georgia,'Times New Roman',serif; color:#FFD34D; text-shadow:0 0 10px rgba(251,191,36,.45)}
 .appbar .icon-btn.on{color:#FFD34D; border-color:rgba(251,191,36,.9)}
 .appbar .icon-btn.muted{opacity:.55}
 /* --- (b) top search (hidden until 🔍) --- */
@@ -1374,6 +1384,12 @@ a{color:var(--green2)}
 /* KBZPay-STYLE HOME (preview 2026-11-18 — Min: homepage layout like the
    KBZPay bank home; colours/style UNCHANGED, dark purple + gold). */
 .kbz-card{background:var(--surface); border:1px solid var(--line); border-radius:20px; padding:14px 12px 12px; box-shadow:var(--glow)}
+.qa{background:linear-gradient(135deg,#FDE68A,#F59E0B)}
+.qa-tile b{color:#1F0B45}
+.qa{padding:6px 6px 4px}
+.qa-tile .qa-ic{width:40px; height:40px}
+.qa-tile .qa-ic svg{width:20px; height:20px}
+.qa-tile b{margin-top:2px}
 .kbz-card-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:4px}
 .kbz-card-title{font-size:17px; font-weight:900; color:var(--gold); letter-spacing:.2px; text-shadow:0 0 12px rgba(251,191,36,.6); border-bottom:2px solid rgba(251,191,36,.55); padding-bottom:3px}
 .kbz-card-sub{font-size:14px; font-weight:700; color:var(--muted)}
