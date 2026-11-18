@@ -356,7 +356,7 @@ function showErr(el, err) { if (el) el.textContent = t("common.err") + " — " +
 const I18N = {
 my: {
 "nav.overview": "ခြုံငုံ", "nav.orders": "အော်ဒါများ",
-"nav.reviews": "သုံးသပ်ချက်များ", "nav.shops": "ဆိုင်များ", "nav.products": "ပစ္စည်းများ",
+"nav.reviews": "သုံးသပ်ချက်များ", "nav.shops": "ဆိုင်များ", "nav.products": "ပစ္စည်းများ", "nav.homeDishes": "ပင်မဟင်းပွဲများ",
 "nav.customers": "ဖောက်သည်များ", "nav.delivery": "ပို့ဆောင်မှု", "nav.riders": "ပို့ဆောင်သူများ",
 "nav.finance": "ငွေစာရင်း", "nav.media": "မီဒီယာ", "nav.settings": "ဆက်တင်",
 "nav.users": "အက်ဒမင်များ", "nav.audit": "မှတ်တမ်း", "nav.moverview": "ကျွန်တော့်ဆိုင်",
@@ -384,6 +384,8 @@ my: {
 "v.shops.s": "အတည်ပြုပြီး ဆိုင်များ။ NEW တံဆိပ်က အတည်ပြုပြီး ၇ ရက်အတွင်း ဆိုင်များကို ပြပါတယ်။",
 "v.products.t": "ပစ္စည်းများ",
 "v.products.s": "ဆိုင်တိုင်းရဲ့ ပစ္စည်းများနှင့် ဈေးနှုန်းများ။",
+"v.homeDishes.t": "ပင်မဟင်းပွဲများ",
+"v.homeDishes.s": "ပင်မစာမျက်နှာမှာ ပြတဲ့ ဟင်းပွဲများနဲ့ ဈေးနှုန်းများ။",
 "v.customers.t": "ဖောက်သည်များ",
 "v.customers.s": "အော်ဒါများမှ ဆွဲထုတ်ထားသော ဖောက်သည်စာရင်း။ Support / Operations အခန်းကဏ္ဍကို ဖုန်းနံပါတ် အပြည့်အစုံ မပြပါ။",
 "v.delivery.t": "ပို့ဆောင်မှု",
@@ -489,6 +491,7 @@ my: {
 "ov.notice.hours": "Bot ရဲ့ ဖွင့်/ပိတ်ချိန်ကို Dashboard က ဆက်တင်မှ မပြောင်းသေးပါ — D6 နောက်ဆက်တွဲ အလုပ်အဖြစ် လာပါမယ်။",
 "ord.next.confirmed": "အတည်ပြုမည်", "ord.next.preparing": "ပြင်ဆင်မည်", "ord.next.delivering": "ပို့ဆောင်မည်", "ord.next.delivered": "ပို့ပြီးကြောင်း အတည်ပြုမည်", "ord.next.cancelled": "ပယ်ဖျက်မည်",
 "ord.viewOnly": "ကြည့်ရှု့သာ", "ord.showTest": "စမ်းသပ်အော်ဒါများ (TEST) ပြပါ", "ord.csv": "CSV ထုတ်မည်",
+"ord.clearTest": "TEST ဖျက်မည်", "ord.confirmClearTest": "TEST အမှတ်ပါတဲ့ အော်ဒါ {n} ခု ကို အကုန် ဖျက်မလား။ ဖျက်ပြီးရင် ပြန်မရတော့ပါ။", "ord.clearTestNone": "ဖျက်စရာ TEST အော်ဒါ မရှိပါ။", "ord.clearTestBlocked": "ဒီအော်ဒါတွေ ဖျက်လို့မရဘူး (ငွေမှတ်တမ်း ရှိလို့): {n}",
 "ord.th.shopItem": "ဆိုင် / ပစ္စည်း", "ord.th.fee": "ပို့ခ", "ord.th.action": "လုပ်ဆောင်ချက်",
 "ord.prev": "← ရှေ့", "ord.next": "နောက် →", "ord.pageOf": "စာမျက်နှာ {p} / စုစုပေါင်း {n} ခု",
 "ord.confirmChange": "အော်ဒါကို \"{s}\" အဖြစ် ပြောင်းမလား?",
@@ -522,16 +525,23 @@ my: {
 "sh.mapsHint": "လင့်ခ်ထဲမှာ GPS ပါရင် pin ကို အလိုအလျောက် ဖြည့်ပေးပါမယ်။",
 "sh.confirmSuspend": "ဒီဆိုင်ကို အက်ပ်က ဖြုတ်မလား။ ဖြုတ်ထားတဲ့ ဆိုင်ကို ဖောက်သည်တွေ မြင်ရမှာ မဟုတ်ပါ။",
 "sh.suspend": "အက်ပ်က ဖြုတ်မည်", "sh.activate": "အက်ပ်မှာ ပြန်ပြမည်",
+"sh.delete": "ဖျက်မည်", "sh.confirmDelete": "ဒီဆိုင်ကို အပြီးဖျက်မလား။ ဆိုင်နဲ့အတူ သူ့ပစ္စည်းတွေ၊ သုံးသပ်ချက်တွေပါ ပျက်သွားမယ်။ ပြန်မရတော့ပါ။",
 "sh.err.name": "ဆိုင်အမည်ကို ထည့်ပေးပါ။", "sh.err.category": "အမျိုးအစား မှားနေပါတယ် — ပြန်ရွေးပေးပါ။",
 "sh.err.address": "ဆိုင်လိပ်စာကို ထည့်ပေးပါ။", "sh.err.phone": "ဖုန်းနံပါတ်ကို ထည့်ပေးပါ။",
 "sh.err.gps": "GPS နံပါတ်တွေ မှားနေပါတယ် — ပြန်စစ်ပေးပါ။", "sh.err.time": "ဖွင့်/ပိတ်ချိန် မှားနေပါတယ် — AM/PM ကို ပြန်ရွေးပေးပါ။",
 "sh.err.sameTime": "ဖွင့်ချိန်နဲ့ ပိတ်ချိန် တူနေပါတယ် — ချိန်တစ်ခုကို ပြောင်းပေးပါ။",
 "sh.err.url": "လင့်ခ် မှားနေပါတယ် — လင့်ခ် အမှန်ကို ပြန်ထည့်ပေးပါ။",
 "sh.err.notFound": "ဒီဆိုင် မရှိတော့ပါ — စာမျက်နှာကို ပြန်ဖွင့်ပေးပါ။", "sh.err.nothing": "ပြောင်းလဲစရာ မရှိပါ။",
+"sh.err.hasOrders": "ဒီဆိုင်မှာ အော်ဒါရှိလို့ ဖျက်လို့မရပါ။", "sh.err.hasMerchant": "ဒီဆိုင်နဲ့ ချိတ်ထားတဲ့ အကောင့်ရှိလို့ ဖျက်လို့မရပါ။ အကောင့်ကို အရင် ဖြုတ်ပါ။",
 "sh.err.generic": "တစ်ခုခု မှားနေပါတယ် — ပြန်ကြိုးစားပေးပါ။",
 "prod.th.product": "ပစ္စည်း", "prod.th.price": "ဈေး", "prod.available": "ရနိုင်သည်", "prod.unavailable": "မရနိုင်ပါ", "prod.add": "ပစ္စည်းအသစ် ထည့်မည်",
 "prod.f.name": "ပစ္စည်းအမည်", "prod.f.currency": "ငွေကြေး", "prod.f.desc": "ဖော်ပြချက်",
 "prod.f.group": "အုပ်စု", "prod.f.photo": "ဓာတ်ပုံ", "prod.ph.group": "Food",
+"hd.add": "ဟင်းပွဲအသစ် ထည့်မည်", "hd.th.dish": "ဟင်းပွဲ", "hd.th.price": "ဈေး", "hd.available": "ရနိုင်သည်", "hd.unavailable": "မရနိုင်သေးပါ",
+"hd.delete": "ဖျက်မည်", "hd.confirmDelete": "ဒီဟင်းပွဲကို ဖျက်မလား။ ပြန်မရတော့ပါ။",
+"hd.empty": "ပင်မဟင်းပွဲ မရှိသေးပါ — အပေါ်က ခလုတ်နဲ့ ထည့်ပေးပါနော်။",
+"hd.f.name": "နာမည်", "hd.f.currency": "ငွေကြေး", "hd.f.desc": "ဖော်ပြချက်", "hd.f.category": "အမျိုးအစား", "hd.f.glyph": "အစားအစာ ပုံစံ",
+"hd.f.unit": "တစ်ခု", "hd.f.photo": "ဓာတ်ပုံ",
 "prod.cur.thb": "THB — ဘတ် (တာချီလိတ်)", "prod.cur.mmk": "MMK — ကျပ် (အခြားမြို့)",
 "cu.th.phone": "ဖုန်း", "cu.th.orders": "အော်ဒါ အရေအတွက်", "cu.th.last": "နောက်ဆုံး ဆိုင် / ရက်",
 "cu.totalN": "စုစုပေါင်း {n} ဦး",
@@ -585,7 +595,7 @@ my: {
 },
 th: {
 "nav.overview": "ภาพรวม", "nav.orders": "คำสั่งซื้อ",
-"nav.reviews": "รีวิว", "nav.shops": "ร้านค้า", "nav.products": "สินค้า",
+"nav.reviews": "รีวิว", "nav.shops": "ร้านค้า", "nav.products": "สินค้า", "nav.homeDishes": "อาหารหน้าแรก",
 "nav.customers": "ลูกค้า", "nav.delivery": "การจัดส่ง", "nav.riders": "ไรเดอร์",
 "nav.finance": "การเงิน", "nav.media": "สื่อ", "nav.settings": "ตั้งค่า",
 "nav.users": "แอดมิน", "nav.audit": "บันทึก", "nav.moverview": "ร้านของฉัน",
@@ -613,6 +623,8 @@ th: {
 "v.shops.s": "ร้านที่อนุมัติแล้ว ป้าย NEW แสดงร้านที่อนุมัติภายใน 7 วัน",
 "v.products.t": "สินค้า",
 "v.products.s": "สินค้าและราคาของทุกร้าน",
+"v.homeDishes.t": "อาหารหน้าแรก",
+"v.homeDishes.s": "อาหารและราคาที่แสดงบนหน้าแรก",
 "v.customers.t": "ลูกค้า",
 "v.customers.s": "รายชื่อลูกค้าจากคำสั่งซื้อ Support / Operations ไม่เห็นเบอร์โทรเต็ม",
 "v.delivery.t": "การจัดส่ง",
@@ -718,6 +730,7 @@ th: {
 "ov.notice.hours": "เวลาเปิดปิดของ Bot ยังเปลี่ยนจาก Dashboard ไม่ได้ — เป็นงานถัดไป (D6)",
 "ord.next.confirmed": "ยืนยัน", "ord.next.preparing": "เริ่มเตรียม", "ord.next.delivering": "เริ่มจัดส่ง", "ord.next.delivered": "ยืนยันว่าจัดส่งแล้ว", "ord.next.cancelled": "ยกเลิก",
 "ord.viewOnly": "ดูอย่างเดียว", "ord.showTest": "แสดงคำสั่งซื้อทดสอบ (TEST)", "ord.csv": "ส่งออก CSV",
+"ord.clearTest": "ลบ TEST", "ord.confirmClearTest": "ลบคำสั่งซื้อ TEST ทั้งหมด {n} รายการใช่ไหม กู้คืนไม่ได้", "ord.clearTestNone": "ไม่มีคำสั่งซื้อ TEST ให้ลบ", "ord.clearTestBlocked": "ลบคำสั่งซื้อเหล่านี้ไม่ได้ (มีบันทึกเงิน): {n}",
 "ord.th.shopItem": "ร้านค้า / สินค้า", "ord.th.fee": "ค่าส่ง", "ord.th.action": "การดำเนินการ",
 "ord.prev": "← ก่อนหน้า", "ord.next": "ถัดไป →", "ord.pageOf": "หน้า {p} / ทั้งหมด {n} รายการ",
 "ord.confirmChange": "เปลี่ยนคำสั่งซื้อนี้เป็น \"{s}\" ใช่ไหม?",
@@ -751,16 +764,23 @@ th: {
 "sh.mapsHint": "หากลิงก์มีพิกัด GPS ระบบจะกรอก pin ให้อัตโนมัติ",
 "sh.confirmSuspend": "นำร้านนี้ออกจากแอปใช่ไหม ลูกค้าจะไม่เห็นร้านที่นำออก",
 "sh.suspend": "นำออกจากแอป", "sh.activate": "แสดงในแอปอีกครั้ง",
+"sh.delete": "ลบ", "sh.confirmDelete": "ลบร้านนี้ถาวรใช่ไหม สินค้าและรีวิวของร้านจะถูกลบไปด้วย และกู้คืนไม่ได้",
 "sh.err.name": "กรุณาใส่ชื่อร้าน", "sh.err.category": "ประเภทไม่ถูกต้อง — กรุณาเลือกใหม่",
 "sh.err.address": "กรุณาใส่ที่อยู่ร้าน", "sh.err.phone": "กรุณาใส่เบอร์โทรศัพท์",
 "sh.err.gps": "พิกัด GPS ไม่ถูกต้อง — กรุณาตรวจสอบอีกครั้ง", "sh.err.time": "เวลาเปิด-ปิดไม่ถูกต้อง — กรุณาเลือก AM/PM ใหม่อีกครั้ง",
 "sh.err.sameTime": "เวลาเปิดและเวลาปิดเท่ากัน — กรุณาเปลี่ยนเวลาหนึ่ง",
 "sh.err.url": "ลิงก์ไม่ถูกต้อง — กรุณาใส่ลิงก์จริงอีกครั้ง",
 "sh.err.notFound": "ไม่พบร้านนี้แล้ว — กรุณาเปิดหน้านี้ใหม่", "sh.err.nothing": "ไม่มีอะไรเปลี่ยนแปลง",
+"sh.err.hasOrders": "ร้านนี้มีออร์เดอร์ จึงลบไม่ได้", "sh.err.hasMerchant": "ร้านนี้มีบัญชีผูกอยู่ จึงลบไม่ได้ กรุณาลบบัญชีก่อน",
 "sh.err.generic": "มีบางอย่างผิดพลาด — กรุณาลองอีกครั้ง",
 "prod.th.product": "สินค้า", "prod.th.price": "ราคา", "prod.available": "มีสินค้า", "prod.unavailable": "ไม่มีสินค้า", "prod.add": "เพิ่มสินค้าใหม่",
 "prod.f.name": "ชื่อสินค้า", "prod.f.currency": "สกุลเงิน", "prod.f.desc": "คำอธิบาย",
 "prod.f.group": "กลุ่ม", "prod.f.photo": "รูปภาพ", "prod.ph.group": "Food",
+"hd.add": "เพิ่มอาหารใหม่", "hd.th.dish": "อาหาร", "hd.th.price": "ราคา", "hd.available": "มีสินค้า", "hd.unavailable": "ไม่มีสินค้า",
+"hd.delete": "ลบ", "hd.confirmDelete": "ลบอาหารจานนี้หรือไม่ ไม่สามารถกู้คืนได้",
+"hd.empty": "ยังไม่มีอาหารหน้าแรก — เพิ่มด้วยปุ่มด้านบน",
+"hd.f.name": "ชื่อ", "hd.f.currency": "สกุลเงิน", "hd.f.desc": "คำอธิบาย", "hd.f.category": "หมวดหมู่", "hd.f.glyph": "ประเภทอาหาร",
+"hd.f.unit": "หน่วย", "hd.f.photo": "รูปภาพ",
 "prod.cur.thb": "THB — บาท (ท่าขี้เหล็ก)", "prod.cur.mmk": "MMK — จ๊าต (เมืองอื่น)",
 "cu.th.phone": "เบอร์โทร", "cu.th.orders": "จำนวนคำสั่งซื้อ", "cu.th.last": "ร้านล่าสุด / วันที่",
 "cu.totalN": "ทั้งหมด {n} คน",
@@ -814,7 +834,7 @@ th: {
 },
 en: {
 "nav.overview": "Overview", "nav.orders": "Orders",
-"nav.reviews": "Reviews", "nav.shops": "Shops", "nav.products": "Products",
+"nav.reviews": "Reviews", "nav.shops": "Shops", "nav.products": "Products", "nav.homeDishes": "Home dishes",
 "nav.customers": "Customers", "nav.delivery": "Delivery", "nav.riders": "Riders",
 "nav.finance": "Finance", "nav.media": "Media", "nav.settings": "Settings",
 "nav.users": "Admins", "nav.audit": "Audit Log", "nav.moverview": "My Shop",
@@ -842,6 +862,8 @@ en: {
 "v.shops.s": "Approved shops. The NEW badge marks shops approved within 7 days.",
 "v.products.t": "Products",
 "v.products.s": "Products and prices from every shop.",
+"v.homeDishes.t": "Home dishes",
+"v.homeDishes.s": "Dishes and prices shown on the home page.",
 "v.customers.t": "Customers",
 "v.customers.s": "Customers from orders. Support / Operations do not see full phone numbers.",
 "v.delivery.t": "Delivery Operations",
@@ -947,6 +969,7 @@ en: {
 "ov.notice.hours": "The bot's open/close hours cannot be changed from the dashboard yet — coming as follow-up work (D6).",
 "ord.next.confirmed": "Confirm", "ord.next.preparing": "Start preparing", "ord.next.delivering": "Start delivery", "ord.next.delivered": "Confirm delivered", "ord.next.cancelled": "Cancel",
 "ord.viewOnly": "View only", "ord.showTest": "Show test orders (TEST)", "ord.csv": "Export CSV",
+"ord.clearTest": "Clear TEST", "ord.confirmClearTest": "Delete all {n} TEST orders? This cannot be undone.", "ord.clearTestNone": "No TEST orders to clear.", "ord.clearTestBlocked": "These orders could not be deleted (they have money records): {n}",
 "ord.th.shopItem": "Shop / Item", "ord.th.fee": "Delivery fee", "ord.th.action": "Action",
 "ord.prev": "← Previous", "ord.next": "Next →", "ord.pageOf": "Page {p} / {n} total",
 "ord.confirmChange": "Change this order to \"{s}\"?",
@@ -980,16 +1003,23 @@ en: {
 "sh.mapsHint": "If the link has GPS coordinates, the pin is filled in automatically.",
 "sh.confirmSuspend": "Remove this shop from the app? Customers will not see it.",
 "sh.suspend": "Remove from app", "sh.activate": "Show in app again",
+"sh.delete": "Delete", "sh.confirmDelete": "Delete this shop for good? Its products and reviews go with it. This cannot be undone.",
 "sh.err.name": "Please enter the shop name.", "sh.err.category": "The type is not right — please choose again.",
 "sh.err.address": "Please enter the shop address.", "sh.err.phone": "Please enter the phone number.",
 "sh.err.gps": "The GPS numbers are wrong — please check them.", "sh.err.time": "The opening/closing time is wrong — please re-pick AM/PM.",
 "sh.err.sameTime": "Opening and closing times are the same — please change one.",
 "sh.err.url": "The link is wrong — please paste a real link.",
 "sh.err.notFound": "This shop is gone — please reopen this page.", "sh.err.nothing": "Nothing changed.",
+"sh.err.hasOrders": "This shop has orders, so it cannot be deleted.", "sh.err.hasMerchant": "This shop has a linked account, so it cannot be deleted. Remove the account first.",
 "sh.err.generic": "Something went wrong — please try again.",
 "prod.th.product": "Product", "prod.th.price": "Price", "prod.available": "Available", "prod.unavailable": "Unavailable", "prod.add": "Add new product",
 "prod.f.name": "Product name", "prod.f.currency": "Currency", "prod.f.desc": "Description",
 "prod.f.group": "Group", "prod.f.photo": "Photo", "prod.ph.group": "Food",
+"hd.add": "Add new dish", "hd.th.dish": "Dish", "hd.th.price": "Price", "hd.available": "Available", "hd.unavailable": "Unavailable",
+"hd.delete": "Delete", "hd.confirmDelete": "Delete this dish? It cannot be recovered.",
+"hd.empty": "No home dishes yet — add one with the button above.",
+"hd.f.name": "Name", "hd.f.currency": "Currency", "hd.f.desc": "Description", "hd.f.category": "Category", "hd.f.glyph": "Food type",
+"hd.f.unit": "Unit", "hd.f.photo": "Photo",
 "prod.cur.thb": "THB — Baht (Tachileik)", "prod.cur.mmk": "MMK — Kyat (other cities)",
 "cu.th.phone": "Phone", "cu.th.orders": "Orders", "cu.th.last": "Last shop / date",
 "cu.totalN": "Total: {n}",
@@ -1043,7 +1073,7 @@ en: {
 },
 zh: {
 "nav.overview": "总览", "nav.orders": "订单",
-"nav.reviews": "评价", "nav.shops": "店铺", "nav.products": "商品",
+"nav.reviews": "评价", "nav.shops": "店铺", "nav.products": "商品", "nav.homeDishes": "首页菜品",
 "nav.customers": "顾客", "nav.delivery": "配送", "nav.riders": "骑手",
 "nav.finance": "财务", "nav.media": "媒体", "nav.settings": "设置",
 "nav.users": "管理员", "nav.audit": "日志", "nav.moverview": "我的店铺",
@@ -1071,6 +1101,8 @@ zh: {
 "v.shops.s": "已批准的店铺，NEW 标志表示 7 天内批准的店铺。",
 "v.products.t": "商品",
 "v.products.s": "各店铺的商品和价格。",
+"v.homeDishes.t": "首页菜品",
+"v.homeDishes.s": "首页显示的菜品和价格。",
 "v.customers.t": "顾客",
 "v.customers.s": "根据订单生成的顾客列表，Support / Operations 看不到完整电话号码。",
 "v.delivery.t": "配送",
@@ -1176,6 +1208,7 @@ zh: {
 "ov.notice.hours": "尚无法从控制台修改 Bot 的营业时间——后续工作（D6）会处理。",
 "ord.next.confirmed": "确认", "ord.next.preparing": "开始准备", "ord.next.delivering": "开始配送", "ord.next.delivered": "确认已送达", "ord.next.cancelled": "取消",
 "ord.viewOnly": "仅查看", "ord.showTest": "显示测试订单 (TEST)", "ord.csv": "导出 CSV",
+"ord.clearTest": "清除 TEST", "ord.confirmClearTest": "要删除全部 {n} 个 TEST 订单吗？删除后无法恢复。", "ord.clearTestNone": "没有可清除的 TEST 订单。", "ord.clearTestBlocked": "这些订单无法删除（有资金记录）: {n}",
 "ord.th.shopItem": "店铺 / 商品", "ord.th.fee": "配送费", "ord.th.action": "操作",
 "ord.prev": "← 上一页", "ord.next": "下一页 →", "ord.pageOf": "第 {p} 页 / 共 {n} 条",
 "ord.confirmChange": "将此订单改为“{s}”吗？",
@@ -1209,16 +1242,23 @@ zh: {
 "sh.mapsHint": "如果链接包含 GPS 坐标，将自动填写定位。",
 "sh.confirmSuspend": "要将这家店铺从应用中移除吗？顾客将看不到它。",
 "sh.suspend": "从应用中移除", "sh.activate": "重新在应用中显示",
+"sh.delete": "删除", "sh.confirmDelete": "要永久删除这家店铺吗？店铺的商品和评价会一起被删除，无法恢复。",
 "sh.err.name": "请输入店铺名称。", "sh.err.category": "类型不正确——请重新选择。",
 "sh.err.address": "请输入店铺地址。", "sh.err.phone": "请输入电话号码。",
 "sh.err.gps": "GPS 数字不正确——请检查。", "sh.err.time": "营业时间不正确——请重新选择 AM/PM。",
 "sh.err.sameTime": "营业时间和打烊时间相同——请更改其中一个。",
 "sh.err.url": "链接不正确——请粘贴真实链接。",
 "sh.err.notFound": "该店铺已不存在——请重新打开此页面。", "sh.err.nothing": "没有任何更改。",
+"sh.err.hasOrders": "这家店铺有订单，无法删除。", "sh.err.hasMerchant": "这家店铺有关联账号，无法删除。请先移除该账号。",
 "sh.err.generic": "出了点问题——请重试。",
 "prod.th.product": "商品", "prod.th.price": "价格", "prod.available": "有货", "prod.unavailable": "无货", "prod.add": "添加新商品",
 "prod.f.name": "商品名称", "prod.f.currency": "货币", "prod.f.desc": "描述",
 "prod.f.group": "分组", "prod.f.photo": "照片", "prod.ph.group": "Food",
+"hd.add": "添加新菜品", "hd.th.dish": "菜品", "hd.th.price": "价格", "hd.available": "有货", "hd.unavailable": "无货",
+"hd.delete": "删除", "hd.confirmDelete": "删除这道菜吗？无法恢复。",
+"hd.empty": "暂无首页菜品 — 用上方按钮添加。",
+"hd.f.name": "名称", "hd.f.currency": "货币", "hd.f.desc": "描述", "hd.f.category": "分类", "hd.f.glyph": "食物类型",
+"hd.f.unit": "单位", "hd.f.photo": "照片",
 "prod.cur.thb": "THB — 泰铢（大其力）", "prod.cur.mmk": "MMK — 缅元（其他城市）",
 "cu.th.phone": "电话", "cu.th.orders": "订单数", "cu.th.last": "最近店铺 / 日期",
 "cu.totalN": "共 {n} 人",
@@ -1402,6 +1442,7 @@ const ADMIN_NAV = [
   {id:"reviews", sub:"Reviews", roles:["owner","operations"]},
   {id:"shops", sub:"Shops", roles:["owner","finance","support","operations"]},
   {id:"products", sub:"Products", roles:["owner","finance","support","operations"]},
+  {id:"homeDishes", sub:"Home Dishes", roles:["owner"]},
   {id:"customers", sub:"Customers", roles:["owner","finance","support","operations"]},
   {id:"delivery", sub:"Delivery", roles:["owner","support","operations"]},
   {id:"riders", sub:"Riders", roles:["owner","support","operations"]},
@@ -1420,7 +1461,7 @@ const MERCHANT_NAV = [
 ];
 const ORDER_NEXT = {pending:["confirmed","cancelled"], confirmed:["preparing","cancelled"], preparing:["delivering","cancelled"], delivering:["delivered","cancelled"]};
 
-const NAV_ICONS = {overview:"📊", orders:"🛒", reviews:"⭐", shops:"🏪", products:"📦", customers:"👥", delivery:"🚚", riders:"🛵", finance:"💰", media:"🖼️", settings:"⚙️", users:"👤", audit:"📋", moverview:"🏪", morders:"🛒", mproducts:"📦", payouts:"💸", prefs:"⚙️", account:"👤"};
+const NAV_ICONS = {overview:"📊", orders:"🛒", reviews:"⭐", shops:"🏪", products:"📦", homeDishes:"🍜", customers:"👥", delivery:"🚚", riders:"🛵", finance:"💰", media:"🖼️", settings:"⚙️", users:"👤", audit:"📋", moverview:"🏪", morders:"🛒", mproducts:"📦", payouts:"💸", prefs:"⚙️", account:"👤"};
 function navFor(role) { return (role === "merchant" ? MERCHANT_NAV : ADMIN_NAV).filter(n => n.roles.includes(role)); }
 function renderNav() {
   const nav = navFor(ME.role);
@@ -1523,12 +1564,36 @@ async function viewOrders(v) {
   }).join("");
   v.innerHTML = head(t("v.orders.t"), t("v.orders.s"),
       `<label style="font-size:14px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="incTest" style="width:auto" ${ORDERS_STATE.includeTest ? "checked" : ""}> ${esc(t("ord.showTest"))}</label>
-       <button class="btn ghost sm" id="csvBtn">${esc(t("ord.csv"))}</button>`)
+       <button class="btn ghost sm" id="csvBtn">${esc(t("ord.csv"))}</button>${ME.role === "owner" ? ` <button class="btn danger sm" id="clearTestBtn">${esc(t("ord.clearTest"))}</button>` : ""}`)
     + `<div class="card">${tableOrEmpty(`<th>${esc(t("ov.th.order"))}</th><th>${esc(t("ov.th.customer"))}</th><th>${esc(t("ord.th.shopItem"))}</th><th>${esc(t("ov.th.status"))}</th><th>${esc(t("ord.th.fee"))}</th><th>${esc(t("ord.th.action"))}</th>`, rows)}
       <div class="pager"><button class="btn ghost sm" id="pgPrev" ${d.page <= 1 ? "disabled" : ""}>${esc(t("ord.prev"))}</button><span>${esc(t("ord.pageOf").replace("{p}", String(d.page)).replace("{n}", fmtNum(d.total)))}</span><button class="btn ghost sm" id="pgNext">${esc(t("ord.next"))}</button></div>
       <div class="err-text" id="ordErr"></div></div>`;
+  if (ORDERS_STATE.blockedNote) { $("#ordErr").textContent = t("ord.clearTestBlocked").replace("{n}", ORDERS_STATE.blockedNote); ORDERS_STATE.blockedNote = null; }
   $("#incTest").addEventListener("change", e => { ORDERS_STATE.includeTest = e.target.checked; ORDERS_STATE.page = 1; showView("orders"); });
   $("#csvBtn").addEventListener("click", async () => { try { await apiCsv("/api/admin/reports/orders.csv" + (ORDERS_STATE.includeTest ? "?include_test=1" : ""), "safe-deli-orders.csv"); } catch (e) { showErr($("#ordErr"), e); } });
+  // --- Clear TEST orders (owner only, 2026-11-18): erases the fake test
+  // orders in one tap. Counts them first so the confirm shows the real
+  // number; orders with money/delivery records stay (append-only) and
+  // their numbers are shown after the refresh. Scope is is_test=1
+  // PLUS the 5 known-fake legacy numbers below — live check
+  // 2026-11-18: none of the 5 is is_test=1 (one NULL, four 0).
+  // One-time legacy list: the 5 fake orders Min wants erased.
+  // All confirmed fake by Min; once deleted this list matches
+  // nothing and the count behaves as pure is_test=1.
+  const CLEAR_TEST_LEGACY = ["SD-20261111-001", "SD-20261112-001",
+    "SD-20261114-001", "SD-20261114-002", "SD-20261114-003"];
+  const clearBtn = $("#clearTestBtn");
+  if (clearBtn) clearBtn.addEventListener("click", async () => {
+    try {
+      const all = await api("/api/admin/orders?include_test=1&limit=500");
+      const tests = (all.orders || []).filter(o => o.is_test || CLEAR_TEST_LEGACY.includes(o.order_no));
+      if (!tests.length) { $("#ordErr").textContent = t("ord.clearTestNone"); return; }
+      if (!confirm(t("ord.confirmClearTest").replace("{n}", String(tests.length)))) return;
+      const r = await api("/api/admin/orders/clear-test", {method: "POST"});
+      if ((r.blocked_order_nos || []).length) ORDERS_STATE.blockedNote = r.blocked_order_nos.join(", ");
+      showView("orders");
+    } catch (e) { showErr($("#ordErr"), e); }
+  });
   $("#pgPrev").addEventListener("click", () => { if (ORDERS_STATE.page > 1) { ORDERS_STATE.page--; showView("orders"); } });
   $("#pgNext").addEventListener("click", () => { ORDERS_STATE.page++; showView("orders"); });
   v.querySelectorAll("button[data-order]").forEach(b => b.addEventListener("click", async () => {
@@ -1642,6 +1707,8 @@ const SHOP_ERRS = [
   ["interior_photo_urls must be a list of HTTPS URLs", "sh.err.url"],
   ["Shop not found", "sh.err.notFound"],
   ["Nothing to update", "sh.err.nothing"],
+  ["Shop has orders", "sh.err.hasOrders"],
+  ["Shop has a merchant account", "sh.err.hasMerchant"],
 ];
 function shopErrText(err) {
   const msg = (err && err.message) || "";
@@ -1748,7 +1815,7 @@ async function viewShops(v) {
     <td data-lbl="${esc(t("ov.th.status"))}"><span class="pill ${s.is_open ? "green" : "grey"}">${esc(t("set.shop.modeIs"))}: ${esc(s.is_open ? t("set.shop.openNow") : t("set.shop.closedNow"))}</span><br><span class="muted small">${esc(t("set.shop.hoursIs"))}: ${esc(s.is_open_now ? t("set.shop.openNow") : t("set.shop.closedNow"))}</span><br>${statusPill(s.status)}${s.verified ? ` <span class="pill blue">${esc(t("st.verified"))}</span>` : ""}</td>
     <td data-lbl="${esc(t("sh.th.contact"))}">${esc(s.phone || "")}<br><span class="muted small">${s.latitude != null ? esc(s.latitude) + ", " + esc(s.longitude) : esc(t("sh.noPin"))}</span></td>
     <td data-lbl="${esc(t("sh.th.since"))}"><span class="muted small">${fmtDate(s.created_at)}</span></td>
-    <td data-lbl="">${isOwner ? `<button class="btn ghost sm" data-sh-edit="${s.id}">${esc(t("sh.edit"))}</button> <button class="btn ghost sm" data-sh-toggle="${s.id}" data-sh-status="${s.status === "active" ? "suspended" : "active"}">${s.status === "active" ? esc(t("sh.suspend")) : esc(t("sh.activate"))}</button> <button class="btn ghost sm" data-sh-oc="${s.id}" data-sh-open="${s.is_open ? "0" : "1"}">${s.is_open ? "🔴 " + esc(t("set.shop.closeBtn")) : "🟢 " + esc(t("set.shop.openBtn"))}</button>` : '<span class="muted small">—</span>'}</td></tr>`).join("");
+    <td data-lbl="">${isOwner ? `<button class="btn ghost sm" data-sh-edit="${s.id}">${esc(t("sh.edit"))}</button> <button class="btn ghost sm" data-sh-toggle="${s.id}" data-sh-status="${s.status === "active" ? "suspended" : "active"}">${s.status === "active" ? esc(t("sh.suspend")) : esc(t("sh.activate"))}</button> <button class="btn ghost sm" data-sh-oc="${s.id}" data-sh-open="${s.is_open ? "0" : "1"}">${s.is_open ? "🔴 " + esc(t("set.shop.closeBtn")) : "🟢 " + esc(t("set.shop.openBtn"))}</button> <button class="btn danger sm" data-sh-delete="${s.id}">${esc(t("sh.delete"))}</button>` : '<span class="muted small">—</span>'}</td></tr>`).join("");
   v.innerHTML = head(t("v.shops.t"), t("v.shops.s"))
     + `<div class="card shop-list">${tableOrEmpty(`<th>${esc(t("app.th.shop"))}</th><th>${esc(t("ov.th.status"))}</th><th>${esc(t("sh.th.contact"))}</th><th>${esc(t("sh.th.since"))}</th><th></th>`, rows)}
       ${isOwner ? `<h3 style="margin-top:16px" id="shFormTitle">${esc(t("sh.formAdd"))}</h3>
@@ -1823,6 +1890,14 @@ async function viewShops(v) {
     const toStatus = b.dataset.shStatus;
     if (toStatus === "suspended" && !confirm(t("sh.confirmSuspend"))) return;
     try { await api(`/api/admin/shops/${b.dataset.shToggle}`, {method: "PUT", body: {status: toStatus}}); showView("shops"); }
+    catch (e) { shopErr($("#shErr"), e); }
+  }));
+  // --- True delete (owner only, 2026-11-18): removes the shop for good.
+  // The server blocks it when the shop has orders or a linked merchant
+  // account; those errors surface via shopErr, like the other shop errors.
+  v.querySelectorAll("[data-sh-delete]").forEach(b => b.addEventListener("click", async () => {
+    if (!confirm(t("sh.confirmDelete"))) return;
+    try { await api(`/api/admin/shops/${b.dataset.shDelete}`, {method: "DELETE"}); showView("shops"); }
     catch (e) { shopErr($("#shErr"), e); }
   }));
   // --- Per-shop open/close (owner only, manual + immediate, any time, no schedule) ---
@@ -1957,6 +2032,122 @@ async function viewProducts(v) {
         await api("/api/admin/products", {method: "POST", body: {shop_id: Number($("#pfShop").value), name: $("#pfName").value.trim(), price: Number($("#pfPrice").value), currency: $("#pfCur").value, description: $("#pfDesc").value.trim(), group_name: $("#pfGroup").value.trim() || "Food", image_url: $("#pfPhoto").value.trim() || null}});
         showView("products");
       } catch (e) { showErr($("#prodErr"), e); }
+    });
+  });
+}
+
+/* ---------- Home dishes (2026-11-18, Min: the 21 home-page dishes,
+   managed from the dashboard, plus as many more as he likes) ---------- */
+const HOME_DISH_CATS = [
+  {id:"breakfast", name:"မနက်စာ"}, {id:"lunch", name:"နေ့လည်စာ"}, {id:"dinner", name:"ညစာ"},
+  {id:"fast", name:"အမြန်စား"}, {id:"drinks", name:"အချိုရည်"},
+  {id:"snacks", name:"အဆာပြေ"}, {id:"rice", name:"ထမင်း"}, {id:"noodles", name:"ခေါက်ဆွဲ"}, {id:"bbq", name:"အကင်"}
+];
+const HOME_DISH_GLYPHS = [
+  {id:"", name:"—"}, {id:"noodle", name:"ခေါက်ဆွဲ"}, {id:"salad", name:"သုပ်"}, {id:"soup", name:"ဟင်းရည်"},
+  {id:"grill", name:"အကင်"}, {id:"fried", name:"ကြော်"}, {id:"pizza", name:"ပီဇာ"}, {id:"burger", name:"ဘာဂါ"},
+  {id:"sushi", name:"ဆူရှီ"}, {id:"hotpot", name:"ဟော့ပေါ့"}, {id:"seafood", name:"ပင်လယ်စာ"},
+  {id:"dumpling", name:"ဖက်ထုပ်"}, {id:"bao", name:"ပေါက်စီ"}, {id:"boba", name:"ဘူဘယ် တီး"},
+  {id:"coffee", name:"ကော်ဖီ"}, {id:"juice", name:"ဖျော်ရည်"}, {id:"cake", name:"ကိတ်မုန့်"}, {id:"icecream", name:"ရေခဲမုန့်"}
+];
+function homeDishCatName(id) { const c = HOME_DISH_CATS.find(x => x.id === id); return c ? c.name : id; }
+function homeDishCur(p) { return p.currency === "MMK" ? "Ks" : "฿"; }
+async function viewHomeDishes(v) {
+  const d = await api("/api/admin/home-dishes");
+  const canEdit = ME.role === "owner";
+  const dishes = d.dishes || [];
+  const rows = dishes.map((p, i) => {
+    const photo = p.image_url
+      ? `<div class="frame-gold prod-frame"><img src="${esc(p.image_url)}" alt=""></div>`
+      : `<div class="frame-gold prod-frame"></div>`;
+    const moveBtns = canEdit
+      ? `<button class="btn sm" data-hd-up="${p.id}" ${i === 0 ? "disabled" : ""} aria-label="up">↑</button> <button class="btn sm" data-hd-down="${p.id}" ${i === dishes.length - 1 ? "disabled" : ""} aria-label="down">↓</button>`
+      : "";
+    const avail = p.is_available
+      ? `<button class="pill green" data-hd-toggle="${p.id}" type="button">${esc(t("hd.available"))}</button>`
+      : `<button class="pill grey" data-hd-toggle="${p.id}" type="button">${esc(t("hd.unavailable"))}</button>`;
+    return `<tr><td data-lbl=""><div id="ht-${p.id}">${photo}</div>${canEdit ? `<div class="up-row"><input id="hf-${p.id}" type="file" accept="image/*" data-hd-photo="${p.id}"></div><div class="up-status" id="hs-${p.id}"></div>` : ""}</td>
+      <td data-lbl="${esc(t("hd.th.dish"))}"><b>${esc(p.name)}</b><br><span class="muted small">${esc(p.description || "")}</span><br><span class="muted small">${esc(homeDishCatName(p.category))}</span></td>
+      <td data-lbl="${esc(t("hd.th.price"))}">${p.price != null ? homeDishCur(p) + fmtNum(p.price) : "—"}</td>
+      <td data-lbl="${esc(t("ov.th.status"))}">${avail}</td>
+      <td data-lbl="">${moveBtns}${canEdit ? ` <button class="btn danger sm" data-hd-delete="${p.id}">${esc(t("hd.delete"))}</button>` : ""}</td></tr>`;
+  }).join("");
+  const listHtml = rows
+    ? tableOrEmpty(`<th>${esc(t("hd.f.photo"))}</th><th>${esc(t("hd.th.dish"))}</th><th>${esc(t("hd.th.price"))}</th><th>${esc(t("ov.th.status"))}</th><th></th>`, rows)
+    : `<div class="empty">${esc(t("hd.empty"))}</div>`;
+  v.innerHTML = head(t("v.homeDishes.t"), t("v.homeDishes.s"))
+    + `<div class="card prod-list">${listHtml}
+      ${canEdit ? `<div style="margin-top:14px"><button class="btn sm" id="addHomeDish">${esc(t("hd.add"))}</button></div><div id="homeDishForm"></div>` : ""}<div class="err-text" id="homeDishErr"></div></div>`;
+  // Per-dish photo change (same gold frame, same upload).
+  v.querySelectorAll("[data-hd-photo]").forEach(input => {
+    const id = input.dataset.hdPhoto;
+    bindUpload("#hf-" + id, "product", false, async url => {
+      await api(`/api/admin/home-dishes/${id}`, {method: "PUT", body: {image_url: url}});
+      showView("homeDishes");
+    }, "#hs-" + id, "#ht-" + id);
+  });
+  // Availability toggle.
+  v.querySelectorAll("[data-hd-toggle]").forEach(b => b.addEventListener("click", async () => {
+    const id = Number(b.dataset.hdToggle);
+    const cur = dishes.find(x => x.id === id);
+    try {
+      await api(`/api/admin/home-dishes/${id}`, {method: "PUT", body: {is_available: !cur.is_available}});
+      showView("homeDishes");
+    } catch (e) { showErr($("#homeDishErr"), e); }
+  }));
+  // Move up / down (swap positions, then refresh).
+  async function move(id, dir) {
+    const i = dishes.findIndex(x => x.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= dishes.length) return;
+    try {
+      await api(`/api/admin/home-dishes/${dishes[j].id}`, {method: "PUT", body: {sort_order: dishes[i].sort_order}});
+      await api(`/api/admin/home-dishes/${id}`, {method: "PUT", body: {sort_order: dishes[j].sort_order}});
+      showView("homeDishes");
+    } catch (e) { showErr($("#homeDishErr"), e); }
+  }
+  v.querySelectorAll("[data-hd-up]").forEach(b => b.addEventListener("click", () => move(Number(b.dataset.hdUp), -1)));
+  v.querySelectorAll("[data-hd-down]").forEach(b => b.addEventListener("click", () => move(Number(b.dataset.hdDown), 1)));
+  // Delete.
+  v.querySelectorAll("[data-hd-delete]").forEach(b => b.addEventListener("click", async () => {
+    if (!confirm(t("hd.confirmDelete"))) return;
+    try {
+      await api(`/api/admin/home-dishes/${b.dataset.hdDelete}`, {method: "DELETE"});
+      showView("homeDishes");
+    } catch (e) { showErr($("#homeDishErr"), e); }
+  }));
+  // Add form.
+  const addBtn = $("#addHomeDish");
+  if (addBtn) addBtn.addEventListener("click", async () => {
+    $("#homeDishForm").innerHTML = `<div class="form-grid" style="margin-top:12px">
+      <div><label class="flabel">${esc(t("hd.f.name"))}</label><input id="hfName"></div>
+      <div><label class="flabel">${esc(t("hd.th.price"))} (${esc(t("app.optional"))})</label><input id="hfPrice" type="number" min="0" step="0.01"></div>
+      <div><label class="flabel">${esc(t("hd.f.currency"))}</label><select id="hfCur"><option value="THB">${esc(t("prod.cur.thb"))}</option><option value="MMK">${esc(t("prod.cur.mmk"))}</option></select></div>
+      <div><label class="flabel">${esc(t("hd.f.category"))}</label><select id="hfCat">${HOME_DISH_CATS.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div>
+      <div><label class="flabel">${esc(t("hd.f.glyph"))} (${esc(t("app.optional"))})</label><select id="hfGlyph">${HOME_DISH_GLYPHS.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join("")}</select></div>
+      <div><label class="flabel">${esc(t("hd.f.unit"))}</label><input id="hfUnit" value="၁ ပွဲ"></div>
+      <div><label class="flabel">${esc(t("hd.f.desc"))} (${esc(t("app.optional"))})</label><input id="hfDesc"></div>
+      <div class="full"><label class="flabel">${esc(t("hd.f.photo"))} ${esc(t("app.optional"))}</label><input id="hfPhoto" type="hidden"><div class="up-row"><input id="hfPhotoFile" type="file" accept="image/*"></div><div class="muted small">${esc(t("sh.up.hint"))}</div><div class="thumb thumb-single" id="hfPhotoThumb"></div><div class="up-status" id="hfPhotoStatus"></div></div>
+      <div class="full"><button class="btn sm" id="hfSave">${esc(t("common.save"))}</button></div></div>`;
+    bindUpload("#hfPhotoFile", "product", false, url => {
+      $("#hfPhoto").value = url;
+      const th = $("#hfPhotoThumb");
+      if (th) th.innerHTML = mediaThumb(url, false, false);
+    }, "#hfPhotoStatus", "#hfPhotoThumb");
+    $("#hfSave").addEventListener("click", async () => {
+      try {
+        const priceRaw = $("#hfPrice").value.trim();
+        await api("/api/admin/home-dishes", {method: "POST", body: {
+          name: $("#hfName").value.trim(),
+          price: priceRaw === "" ? null : Number(priceRaw),
+          currency: $("#hfCur").value,
+          category: $("#hfCat").value,
+          glyph: $("#hfGlyph").value || "bowl",
+          unit: $("#hfUnit").value.trim(),
+          description: $("#hfDesc").value.trim(),
+          image_url: $("#hfPhoto").value || null}});
+        showView("homeDishes");
+      } catch (e) { showErr($("#homeDishErr"), e); }
     });
   });
 }
@@ -2316,7 +2507,7 @@ async function viewPayouts(v) {
 
 /* ---------- views registry ---------- */
 const VIEWS = {overview: viewOverview, orders: viewOrders, reviews: viewReviews, shops: viewShops,
-  products: viewProducts, customers: viewCustomers, delivery: viewDelivery, riders: viewRiders,
+  products: viewProducts, homeDishes: viewHomeDishes, customers: viewCustomers, delivery: viewDelivery, riders: viewRiders,
   finance: viewFinance, media: viewMedia, settings: viewSettings, users: viewUsers, audit: viewAudit,
   moverview: viewMerchantOverview, morders: viewMerchantOrders, mproducts: viewMerchantProducts, payouts: viewPayouts, prefs: viewPrefs};
 
