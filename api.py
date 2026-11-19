@@ -143,6 +143,7 @@ def _default_settings():
     return {
         "global_hours": {"open": "06:00", "close": "22:00", "timezone": "Asia/Yangon"},
         "delivery": {"min_fee_baht": 30, "currency": "THB"},
+        "music_volume": 50,
         "contact": {"phone": "09441582958", "telegram": "@SafeDeliveryone"},
         "banners": [],
         "hero_image": None,
@@ -545,7 +546,8 @@ def _validate_settings_patch(patch):
     if not isinstance(patch, dict) or not patch:
         return None, "No settings provided"
     allowed = {"global_hours", "delivery", "banners", "registration_form",
-               "hero_image", "promo_slots", "featured_shop_ids", "contact"}
+               "hero_image", "promo_slots", "featured_shop_ids", "contact",
+               "music_volume"}
     unknown = sorted(set(patch) - allowed)
     if unknown:
         return None, "Unknown settings key: " + ", ".join(unknown)
@@ -576,6 +578,8 @@ def _validate_settings_patch(patch):
             return None, "Opening and closing times must use HH:MM"
         if open_time == close_time:
             return None, "Opening and closing times must differ"
+        if open_time > close_time:
+            return None, "Opening time must be before closing time"
         cleaned["global_hours"] = {"open": open_time, "close": close_time,
                                     "timezone": "Asia/Yangon"}
     if "delivery" in patch:
@@ -586,6 +590,12 @@ def _validate_settings_patch(patch):
         if isinstance(fee, bool) or not isinstance(fee, (int, float)) or not math.isfinite(fee) or fee < 0:
             return None, "min_fee_baht must be a non-negative number"
         cleaned["delivery"] = {"min_fee_baht": round(float(fee), 2), "currency": "THB"}
+    if "music_volume" in patch:
+        vol = patch["music_volume"]
+        if (isinstance(vol, bool) or not isinstance(vol, (int, float))
+                or not math.isfinite(vol) or vol < 0 or vol > 100):
+            return None, "music_volume must be a number from 0 to 100"
+        cleaned["music_volume"] = int(vol)
     if "banners" in patch:
         banners = patch["banners"]
         if not isinstance(banners, list) or len(banners) > 20:
@@ -2245,6 +2255,22 @@ def _validate_init_data(raw):
     return user
 
 
+def _write_shop_hours_file(hours):
+    """Write shop_hours.json (the file bot.py reads) from dashboard
+    global_hours. Atomic via a temp file + os.replace so the bot never
+    reads a half-written file. Returns None on success, an error
+    string on failure (the settings are already saved then)."""
+    try:
+        data = json.dumps({"open": hours["open"], "close": hours["close"]},
+                          ensure_ascii=False)
+        tmp = SHOP_HOURS_FILE.with_suffix(".json.tmp")
+        tmp.write_text(data, encoding="utf-8")
+        os.replace(tmp, SHOP_HOURS_FILE)
+        return None
+    except OSError as exc:
+        return str(exc)
+
+
 def _server_route_hours_minutes():
     """Owner-set hours as (open_min, close_min) from shop_hours.json;
     missing / broken / invalid -> the 06:00-22:00 defaults (same as bot.py)."""
@@ -2746,14 +2772,18 @@ def application(environ, start_response):
                                              {"error": "Merchant account is not linked to a shop"})
                     clauses.append("shop_id=?"); params.append(merchant_shop)
                 if search:
-                    clauses.append("(COALESCE(order_no,'') LIKE ? OR COALESCE(customer_name,'') LIKE ? OR COALESCE(shop,'') LIKE ?)")
-                    params.extend([f"%{search}%"] * 3)
+                    # Order lookup (Min 2026-11-19): order number OR the
+                    # phone given at order time (sender_phone), partial
+                    # match on either — plus the existing name/shop match.
+                    clauses.append("(COALESCE(order_no,'') LIKE ? OR COALESCE(customer_name,'') LIKE ? OR COALESCE(shop,'') LIKE ? OR COALESCE(sender_phone,'') LIKE ?)")
+                    params.extend([f"%{search}%"] * 4)
                 where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
                 with connect() as con:
                     total = con.execute("SELECT COUNT(*) FROM orders" + where, params).fetchone()[0]
+                    fee_total = con.execute("SELECT COALESCE(SUM(delivery_fee),0) FROM orders" + where, params).fetchone()[0]
                     rows = con.execute("SELECT id,order_no,created_at,customer_name,sender_phone,shop,item,dropoff,source,order_status,delivery_fee,is_test FROM orders" + where + " ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?", (*params, limit, (page-1)*limit)).fetchall()
                 return json_response(start_response, "200 OK", {"timezone": "Asia/Yangon", "page": page, "limit": limit,
-                    "total": total, "orders": [dict(r) for r in rows]})
+                    "total": total, "fee_total": fee_total, "orders": [dict(r) for r in rows]})
             if search:
                 clauses.append("(COALESCE(shop_name,'') LIKE ? OR COALESCE(owner_name,'') LIKE ? OR COALESCE(phone,'') LIKE ?)")
                 params.extend([f"%{search}%"] * 3)
@@ -3623,7 +3653,12 @@ def application(environ, start_response):
                     _audit(con, auth[1], "settings.update", "setting", key,
                            {"before": before.get(key), "after": value})
                 merged = _read_settings(con)
-            return json_response(start_response, "200 OK", merged)
+            payload = dict(merged)
+            if "global_hours" in cleaned:
+                sync_error = _write_shop_hours_file(cleaned["global_hours"])
+                if sync_error is not None:
+                    payload["shop_hours_error"] = sync_error
+            return json_response(start_response, "200 OK", payload)
         # --- Shop types: owner-managed category list (2026-11-12) ----------
         # Stored as the 'shop_types' key in dashboard_settings (same
         # pattern as banners/promo_slots). The store is a FLAT list of
@@ -3838,6 +3873,7 @@ def application(environ, start_response):
                 "promo_slots": list(promo_slots)[:8] if isinstance(promo_slots, list) else [],
                 "featured_shop_ids": list(featured_ids) if isinstance(featured_ids, list) else [],
                 "contact": settings["contact"],
+                "music_volume": settings.get("music_volume", 50),
                 "registration_form": settings["registration_form"]})
         # --- D5 public catalogue (2026-11-12) --------------------------------
         # The Mini App (GitHub Pages) reads the shop/product catalogue
@@ -5130,6 +5166,7 @@ def application(environ, start_response):
             if date_err:
                 return json_response(start_response, "400 Bad Request", {"error": date_err})
             include_test = (query.get("include_test", [""])[0] or "").strip().lower() in {"1", "true", "yes", "on"}
+            search = (query.get("q", [""])[0] or "").strip()[:100]
             with connect() as con:
                 clauses, params = [], []
                 cols = {r[1] for r in con.execute("PRAGMA table_info(orders)")}
@@ -5139,6 +5176,9 @@ def application(environ, start_response):
                     clauses.append("substr(created_at,1,10)>=?"); params.append(date_from)
                 if date_to:
                     clauses.append("substr(created_at,1,10)<=?"); params.append(date_to)
+                if search:
+                    clauses.append("(COALESCE(order_no,'') LIKE ? OR COALESCE(customer_name,'') LIKE ? OR COALESCE(shop,'') LIKE ? OR COALESCE(sender_phone,'') LIKE ?)")
+                    params.extend([f"%{search}%"] * 4)
                 where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
                 rows = con.execute("SELECT id,order_no,created_at,customer_name,sender_phone,shop,shop_id,item,order_status,delivery_fee,is_test FROM orders" + where + " ORDER BY created_at DESC,id DESC", params).fetchall()
                 # Currency per shop, from the shop's latest ledger row
