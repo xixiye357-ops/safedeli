@@ -580,6 +580,7 @@ my: {
 "set.hours.open": "ဖွင့်ချိန် (HH:MM)", "set.hours.close": "ပိတ်ချိန် (HH:MM)",
 "set.hours.ownerOnly": "Owner သာ ပြင်နိုင်ပါတယ်။",
 "set.hours.saved": "သိမ်းပြီးပါပြီ။ (Bot ကို မထိခိုက်သေးပါ — အပေါ်က သတိပေးချက်ကို ကြည့်ပါ။)",
+"set.hours.savedLinked": "သိမ်းပြီးပါပြီ။ Bot အချိန်ပါ ပြောင်းသွားပါပြီ။",
 "set.kv.t": "လက်ရှိ ဆက်တင်များ",
 "set.music.t": "သီချင်း အသံ — Song Volume",
 "set.music.h": "အက်ပ်ထဲက သီချင်း အသံ (0 = တိတ်, 100 = အကျယ်ဆုံး)။",
@@ -595,7 +596,7 @@ my: {
 "set.types.editT": "အမျိုးအစား ပြင်မည် — ",
 "set.types.editType": "အမျိုးအစားပြင်မည်", "set.types.disable": "ပိတ်မည်",
 "set.types.enable": "ဖွင့်မည်", "set.types.del": "ဖျက်မည်",
-"set.d6": "သတိပေးချက် (D6): ဒီမှာ ပြင်တဲ့ ဖွင့်/ပိတ်ချိန်သည် Bot ကို မထိခိုက်သေးပါ — Bot ရဲ့ အချိန်ကို /sethours နဲ့ ပိုင်ရှင်က သတ်မှတ်ရပါမယ်။ Dashboard နဲ့ Bot အချိန် ချိတ်ဆက်မှုက နောက်ဆက်တွဲ အလုပ် ဖြစ်ပါတယ်။",
+"set.d6": "ဖွင့်/ပိတ်ချိန် ချိတ်ထားပြီးပါပြီ — ဒီမှာ ပြင်ရင် Bot အချိန်ပါ ပြောင်းမယ်၊ Bot မှာ /sethours နဲ့ ပြင်ရင်လဲ ဒီမှာ ပြောင်းမယ်။",
 "st.pending": "စောင့်ဆိုင်း", "st.new": "အသစ်", "st.confirmed": "အတည်ပြုပြီး",
 "st.shop_confirmed": "ဆိုင်လက်ခံပြီး", "st.shop_rejected": "ဆိုင်ငြင်းပြီး",
 "st.preparing": "ပြင်ဆင်နေသည်", "st.delivering": "ပို့နေသည်", "st.delivered": "ပို့ပြီးပြီ",
@@ -631,7 +632,7 @@ my: {
 "ov.sys.api": "API အခြေအနေ", "ov.sys.working": "အလုပ်လုပ်နေပါတယ် (as of {v})",
 "ov.countN": "{n} ခု", "ov.notices": "သတိပေးချက်",
 "ov.notice.test": "စမ်းသပ် (TEST) အော်ဒါများကို ခြုံငုံစာရင်းမှ ဖယ်ထားပါတယ်။ အော်ဒါစာမျက်နှာမှာ \"စမ်းသပ်အော်ဒါများ ပြပါ\" ကို အမှန်ခြစ်မှ မြင်ရပါမယ်။",
-"ov.notice.hours": "Bot ရဲ့ ဖွင့်/ပိတ်ချိန်ကို Dashboard က ဆက်တင်မှ မပြောင်းသေးပါ — D6 နောက်ဆက်တွဲ အလုပ်အဖြစ် လာပါမယ်။",
+"ov.notice.hours": "ဖွင့်/ပိတ်ချိန် Dashboard နဲ့ Bot ချိတ်ထားပြီးပါပြီ။",
 "ord.next.confirmed": "အတည်ပြုမည်", "ord.next.preparing": "ပြင်ဆင်မည်", "ord.next.delivering": "ပို့ဆောင်မည်", "ord.next.delivered": "ပို့ပြီးကြောင်း အတည်ပြုမည်", "ord.next.cancelled": "ပယ်ဖျက်မည်",
 "ord.viewOnly": "ကြည့်ရှု့သာ", "ord.showTest": "စမ်းသပ်အော်ဒါများ (TEST) ပြပါ", "ord.csv": "CSV ထုတ်မည်",
 "ord.clearTest": "TEST ဖျက်မည်", "ord.confirmClearTest": "TEST အမှတ်ပါတဲ့ အော်ဒါ {n} ခု ကို အကုန် ဖျက်မလား။ ဖျက်ပြီးရင် ပြန်မရတော့ပါ။", "ord.clearTestNone": "ဖျက်စရာ TEST အော်ဒါ မရှိပါ။", "ord.clearTestBlocked": "ဒီအော်ဒါတွေ ဖျက်လို့မရဘူး (ငွေမှတ်တမ်း ရှိလို့): {n}",
@@ -825,6 +826,7 @@ th: {
 "set.hours.open": "เวลาเปิด (HH:MM)", "set.hours.close": "เวลาปิด (HH:MM)",
 "set.hours.ownerOnly": "เฉพาะ Owner เท่านั้นที่แก้ไขได้",
 "set.hours.saved": "บันทึกแล้ว (ยังไม่มีผลกับ Bot — ดูคำเตือนด้านบน)",
+"set.hours.savedLinked": "บันทึกแล้ว Bot จะเปลี่ยนเวลาด้วย",
 "set.kv.t": "การตั้งค่าปัจจุบัน",
 "set.music.t": "ระดับเสียงเพลง — Song Volume",
 "set.music.h": "ระดับเสียงเพลงในแอป (0 = เงียบ, 100 = ดังที่สุด)",
@@ -840,7 +842,7 @@ th: {
 "set.types.editT": "แก้ไขประเภท — ",
 "set.types.editType": "แก้ไขประเภท", "set.types.disable": "ปิด",
 "set.types.enable": "เปิด", "set.types.del": "ลบ",
-"set.d6": "คำเตือน (D6): เวลาเปิดปิดที่แก้ที่นี่ ยังไม่มีผลกับ Bot — Owner ต้องตั้งเวลา Bot ด้วย /sethours การเชื่อมโยงเวลาเป็นงานถัดไป",
+"set.d6": "เชื่อมเวลาแล้ว — แก้ที่นี่ Bot จะเปลี่ยนด้วย และ /sethours ใน Bot ก็จะเปลี่ยนที่นี่ด้วย",
 "st.pending": "รอดำเนินการ", "st.new": "ใหม่", "st.confirmed": "ยืนยันแล้ว",
 "st.shop_confirmed": "ร้านรับแล้ว", "st.shop_rejected": "ร้านปฏิเสธแล้ว",
 "st.preparing": "กำลังเตรียม", "st.delivering": "กำลังจัดส่ง", "st.delivered": "จัดส่งแล้ว",
@@ -1103,6 +1105,7 @@ en: {
 "set.hours.open": "Opening time (HH:MM)", "set.hours.close": "Closing time (HH:MM)",
 "set.hours.ownerOnly": "Only the owner can change this.",
 "set.hours.saved": "Saved. (Does not affect the bot yet — see the warning above.)",
+"set.hours.savedLinked": "Saved. The bot's hours are updated too.",
 "set.kv.t": "Current settings",
 "set.music.t": "Song Volume",
 "set.music.h": "Music volume in the app (0 = silent, 100 = loudest).",
@@ -1348,6 +1351,7 @@ zh: {
 "set.hours.open": "开店时间 (HH:MM)", "set.hours.close": "关店时间 (HH:MM)",
 "set.hours.ownerOnly": "仅店主可以修改。",
 "set.hours.saved": "已保存。（尚未影响 Bot，见上方提示。）",
+"set.hours.savedLinked": "已保存。Bot 的时间也已更新。",
 "set.kv.t": "当前设置",
 "set.music.t": "音乐音量 — Song Volume",
 "set.music.h": "应用内音乐音量（0 = 静音，100 = 最大）。",
@@ -2887,7 +2891,7 @@ async function viewSettings(v) {
   bindPerUserSettings(v);
   const btn = $("#hoursSave");
   if (btn) btn.addEventListener("click", async () => {
-    try { await api("/api/admin/settings", {method: "PUT", body: {global_hours: {open: $("#setOpen").value.trim(), close: $("#setClose").value.trim()}}}); $("#setOk").textContent = t("set.hours.saved"); }
+    try { await api("/api/admin/settings", {method: "PUT", body: {global_hours: {open: $("#setOpen").value.trim(), close: $("#setClose").value.trim()}}}); $("#setOk").textContent = t("set.hours.savedLinked"); }
     catch (e) { showErr($("#setErr"), e); }
   });
   const ctSave = $("#ctSave");
