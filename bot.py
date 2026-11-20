@@ -4765,6 +4765,152 @@ async def notify_status_changes_job(context):
         conn.close()
 
 
+# --- Service-booking pickup (v19.47, Min 2026-11-20) --------------------
+# The Mini App POSTs service bookings (school run, bus, airport,
+# hospital, shopping errands, documents, food, products) to the API
+# instead of sendData, so a booking can never be lost to a closed
+# WebApp. This job claims them and sends Min ONE card per booking in
+# the owner chat, mirroring the server-route order pickup: atomic
+# claim (UPDATE ... WHERE picked_up=0, rowcount==1 wins) inside
+# BEGIN IMMEDIATE, one bad booking never kills the batch, and the job
+# itself never raises into the scheduler. NOT gated by the orders
+# flag — bookings are not orders (same as the status-notify job).
+_SERVICE_BOOKING_COLUMNS = (
+    "id", "booking_id", "service", "service_name", "customer_name",
+    "customer_phone", "fields_json", "created_at",
+)
+_SERVICE_BOOKING_LABELS = {
+    "child": "ကလေး အမည်", "school": "ကျောင်း", "date": "နေ့",
+    "time": "အချိန်", "place": "နေရာ", "note": "မှတ်ချက်",
+    "direction": "ဦးတည်ရာ", "shop": "ဆိုင်", "item": "ပစ္စည်း",
+    "people": "လူဦးရေ", "doctype": "စာရွက်စာတမ်း အမျိုးအစား",
+    "flight": "လေယာဉ် / လေဆိပ်", "hospital": "ဆေးရုံ",
+    "bus": "ကားဂိတ်", "market": "ဈေး / ဆိုင်",
+    "passenger": "ခရီးသည် အမည်", "patient": "လူနာ အမည်",
+    "pickup_place": "ကြိုရမည့်နေရာ", "drop_place": "ပို့ရမည့်နေရာ",
+}
+
+
+def claim_service_bookings(conn, limit=10):
+    """Atomically claim unpicked service bookings. Call inside the
+    caller's transaction (BEGIN IMMEDIATE serializes writers).
+    Returns the claimed row ids, oldest first. The table is created
+    lazily here too, so the job heals itself on a fresh DB."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS service_bookings ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id TEXT NOT NULL UNIQUE, "
+        "service TEXT NOT NULL, service_name TEXT NOT NULL, "
+        "customer_name TEXT NOT NULL, customer_phone TEXT NOT NULL, "
+        "fields_json TEXT NOT NULL DEFAULT '{}', status TEXT NOT NULL DEFAULT 'new', "
+        "picked_up INTEGER NOT NULL DEFAULT 0, picked_up_at TEXT, "
+        "created_at TEXT NOT NULL)"
+    )
+    now = datetime.now(YANGON_TZ).isoformat(timespec="seconds")
+    rows = conn.execute(
+        "SELECT id FROM service_bookings WHERE picked_up=0 "
+        "ORDER BY id LIMIT ?",
+        (limit,),
+    ).fetchall()
+    claimed = []
+    for (booking_id,) in rows:
+        cur = conn.execute(
+            "UPDATE service_bookings SET picked_up=1, picked_up_at=? "
+            "WHERE id=? AND picked_up=0",
+            (now, booking_id),
+        )
+        if cur.rowcount == 1:
+            claimed.append(booking_id)
+    return claimed
+
+
+def _service_booking_card(row):
+    """One owner-chat card for a claimed booking row (dict). Fields
+    the header already shows (name / phone) are skipped in the list;
+    every other field is shown with its Burmese label."""
+    fields = {}
+    try:
+        fields = json.loads(row.get("fields_json") or "{}")
+    except ValueError:
+        fields = {}
+    if not isinstance(fields, dict):
+        fields = {}
+    lines = [
+        "🛎️ ဝန်ဆောင်မှု ဘွတ်ကင် အသစ်",
+        f"{row.get('service_name') or row.get('service') or ''} · {row.get('booking_id') or ''}",
+        f"👤 {row.get('customer_name') or ''}",
+        f"📞 {row.get('customer_phone') or ''}",
+    ]
+    for key in ("date", "time", "place", "direction", "child", "school",
+                "shop", "item", "people", "doctype", "flight", "hospital",
+                "bus", "market", "passenger", "patient", "pickup_place",
+                "drop_place", "note"):
+        val = fields.get(key)
+        if val in (None, ""):
+            continue
+        lines.append(f"{_SERVICE_BOOKING_LABELS.get(key, key)}: {val}")
+    for key, val in fields.items():
+        if key in ("cname", "cphone", "date", "time", "place", "direction",
+                   "child", "school", "shop", "item", "people", "doctype",
+                   "flight", "hospital", "bus", "market", "passenger",
+                   "patient", "pickup_place", "drop_place", "note"):
+            continue
+        if val in (None, ""):
+            continue
+        lines.append(f"{key}: {val}")
+    lines.append("ဈေးနှုန်း — ဖုန်းဆက်ပြီး အတည်ပြုပေးပါနော်။")
+    return "\n".join(lines)
+
+
+async def pickup_service_bookings_job(context):
+    """JobQueue pickup (every 15s): claim new service bookings and
+    send Min one card per booking in the owner chat."""
+    try:
+        conn = db_connect()
+    except Exception:
+        logger.exception("service-booking pickup: cannot open database")
+        return
+    try:
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                claimed = claim_service_bookings(conn)
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+        except Exception:
+            logger.exception("service-booking pickup: claim failed")
+            return
+        for booking_id in claimed:
+            try:
+                row = conn.execute(
+                    "SELECT " + ", ".join(_SERVICE_BOOKING_COLUMNS)
+                    + " FROM service_bookings WHERE id=?",
+                    (booking_id,),
+                ).fetchone()
+                if row is None:
+                    continue
+                data = dict(zip(_SERVICE_BOOKING_COLUMNS, row))
+                if not OWNER_CHAT_ID:
+                    logger.warning(
+                        "service-booking pickup: OWNER_CHAT_ID is not set; "
+                        "booking %s stays claimed but unsent",
+                        data.get("booking_id"),
+                    )
+                    continue
+                await context.bot.send_message(
+                    chat_id=int(OWNER_CHAT_ID),
+                    text=_service_booking_card(data),
+                )
+            except Exception:
+                logger.exception(
+                    "service-booking pickup: delivery failed for id %s",
+                    booking_id,
+                )
+    finally:
+        conn.close()
+
+
 async def pickup_api_orders_job(context):
     """JobQueue pickup (every 15s): claim unpicked server-route orders
     and deliver their confirmations. One bad order never kills the
@@ -7129,6 +7275,7 @@ def build_app():
     # orders flag: it watches dashboard changes, not order intake.
     if app.job_queue is not None:
         app.job_queue.run_repeating(notify_status_changes_job, interval=15, first=15)
+        app.job_queue.run_repeating(pickup_service_bookings_job, interval=15, first=17)
     else:
         logger.warning(
             "status notify NOT running: python-telegram-bot "
