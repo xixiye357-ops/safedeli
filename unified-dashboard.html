@@ -642,6 +642,7 @@ my: {
 "ord.th.shopItem": "ဆိုင် / ပစ္စည်း", "ord.th.fee": "ပို့ခ", "ord.th.action": "လုပ်ဆောင်ချက်",
 "ord.prev": "← ရှေ့", "ord.next": "နောက် →", "ord.pageOf": "စာမျက်နှာ {p} / စုစုပေါင်း {n} ခု",
 "ord.confirmChange": "အော်ဒါကို \"{s}\" အဖြစ် ပြောင်းမလား?",
+"ord.feePh": "ဂဏန်း ရိုက်ပါ", "ord.feeNotePh": "အကြောင်းပြချက် (ရွေးချယ်စရာ)", "ord.feeConfirm": "ပို့ခ အတည်ပြုမည်", "ord.feeConfirmQ": "ပို့ခ {fee} ဘတ် အတည်ပြုမလား?", "ord.feeWaiting": "ဧည့်သည် လက်ခံဖို့ စောင့်နေသည်", "ord.feeAccepted": "ဧည့်သည် လက်ခံပြီး", "ord.feeInvalid": "ပို့ခ ဂဏန်း မှန်ကန်စွာ ရိုက်ပါ။",
 "common.approve": "အတည်ပြုမည်", "common.reject": "ပယ်ချမည်", "common.rejectReason": "ပယ်ချရတဲ့ အကြောင်းရင်း (မဖြစ်မနေ ရေးရပါမယ်):", "common.all": "အားလုံး",
 "app.optional": "(မဖြစ်မနေ မဟုတ်)",
 "app.th.shop": "ဆိုင်", "app.th.decision": "ဆုံးဖြတ်ချက်",
@@ -894,6 +895,7 @@ th: {
 "ord.th.shopItem": "ร้านค้า / สินค้า", "ord.th.fee": "ค่าส่ง", "ord.th.action": "การดำเนินการ",
 "ord.prev": "← ก่อนหน้า", "ord.next": "ถัดไป →", "ord.pageOf": "หน้า {p} / ทั้งหมด {n} รายการ",
 "ord.confirmChange": "เปลี่ยนคำสั่งซื้อนี้เป็น \"{s}\" ใช่ไหม?",
+"ord.feePh": "ใส่ตัวเลข", "ord.feeNotePh": "เหตุผล (ไม่บังคับ)", "ord.feeConfirm": "ยืนยันค่าส่ง", "ord.feeConfirmQ": "ยืนยันค่าส่ง {fee} บาทใช่ไหม?", "ord.feeWaiting": "รอลูกค้ายืนยัน", "ord.feeAccepted": "ลูกค้ายืนยันแล้ว", "ord.feeInvalid": "กรุณาใส่ค่าส่งให้ถูกต้อง",
 "common.approve": "อนุมัติ", "common.reject": "ปฏิเสธ", "common.rejectReason": "เหตุผลที่ปฏิเสธ (จำเป็นต้องระบุ):", "common.all": "ทั้งหมด",
 "app.optional": "(ไม่บังคับ)",
 "app.th.shop": "ร้านค้า", "app.th.decision": "การตัดสินใจ",
@@ -1175,6 +1177,7 @@ en: {
 "ord.th.shopItem": "Shop / Item", "ord.th.fee": "Delivery fee", "ord.th.action": "Action",
 "ord.prev": "← Previous", "ord.next": "Next →", "ord.pageOf": "Page {p} / {n} total",
 "ord.confirmChange": "Change this order to \"{s}\"?",
+"ord.feePh": "Enter amount", "ord.feeNotePh": "Reason (optional)", "ord.feeConfirm": "Confirm fee", "ord.feeConfirmQ": "Confirm delivery fee {fee} baht?", "ord.feeWaiting": "Waiting for customer", "ord.feeAccepted": "Customer accepted", "ord.feeInvalid": "Please enter a valid fee amount.",
 "common.approve": "Approve", "common.reject": "Reject", "common.rejectReason": "Reason for rejection (required):", "common.all": "All",
 "app.optional": "(optional)",
 "app.th.shop": "Shop", "app.th.decision": "Decision",
@@ -1427,6 +1430,7 @@ zh: {
 "ord.th.shopItem": "店铺 / 商品", "ord.th.fee": "配送费", "ord.th.action": "操作",
 "ord.prev": "← 上一页", "ord.next": "下一页 →", "ord.pageOf": "第 {p} 页 / 共 {n} 条",
 "ord.confirmChange": "将此订单改为“{s}”吗？",
+"ord.feePh": "输入金额", "ord.feeNotePh": "原因（可选）", "ord.feeConfirm": "确认配送费", "ord.feeConfirmQ": "确认配送费 {fee} 铢？", "ord.feeWaiting": "等待顾客确认", "ord.feeAccepted": "顾客已接受", "ord.feeInvalid": "请输入正确的配送费。",
 "common.approve": "批准", "common.reject": "拒绝", "common.rejectReason": "拒绝原因（必填）：", "common.all": "全部",
 "app.optional": "（可选）",
 "app.th.shop": "店铺", "app.th.decision": "决定",
@@ -2186,11 +2190,18 @@ async function viewOrders(v) {
   const rows = (d.orders || []).map(o => {
     const next = (ORDER_NEXT[o.order_status || "pending"] || []).map(st =>
       `<button class="btn sm ${st === "cancelled" ? "danger" : ""}" data-order="${o.id}" data-status="${st}">${esc(t("ord.next." + st))}</button>`).join(" ");
+    // Fee-confirm (2026-11-20, v19.54): Min types the EXACT delivery
+    // fee per order here (30 baht is only the minimum). The bot then
+    // asks the customer to accept it; the shop hears only after.
+    const feeState = o.fee_status === "accepted" ? `<span class="pill">✅ ${esc(t("ord.feeAccepted"))}</span>` : o.fee_status === "pending" ? `<span class="pill">⏳ ${esc(t("ord.feeWaiting"))}</span>` : "";
+    const feeBox = (canChange && !o.is_test && (o.order_status || "pending") === "pending" && o.fee_status !== "accepted" && o.fee_status !== "declined")
+      ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;align-items:center"><input type="number" min="0" max="100000" step="1" value="${o.delivery_fee != null ? o.delivery_fee : 30}" data-fee-input="${o.id}" style="width:80px" placeholder="${esc(t("ord.feePh"))}"><span>฿</span><input type="text" maxlength="200" value="${esc(o.fee_note || "")}" data-fee-note="${o.id}" style="width:120px" placeholder="${esc(t("ord.feeNotePh"))}"><button class="btn sm" data-fee-order="${o.id}">${esc(t("ord.feeConfirm"))}</button>${feeState}</div>`
+      : (o.fee_status === "accepted" ? `<div style="margin-top:6px">${feeState}</div>` : "");
     return `<tr><td><b>${esc(o.order_no)}</b>${o.is_test ? ' <span class="pill test">TEST</span>' : ""}<br><span class="muted small">${fmtDate(o.created_at)}</span></td>
       <td>${esc(o.customer_name || "")}<br><span class="muted small">${esc(o.sender_phone || "")}</span></td>
       <td>${esc(o.shop || "")}<br><span class="muted small">${esc(o.item || "")}</span></td>
       <td>${statusPill(o.order_status)}</td><td>${o.delivery_fee != null ? "฿" + fmtNum(o.delivery_fee) : "—"}</td>
-      <td>${canChange ? next : `<span class="muted small">${esc(t("ord.viewOnly"))}</span>`}</td></tr>`;
+      <td>${canChange ? next : `<span class="muted small">${esc(t("ord.viewOnly"))}</span>`}${feeBox}</td></tr>`;
   }).join("");
   v.innerHTML = head(t("v.orders.t"), t("v.orders.s"),
       `<label style="font-size:14px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="incTest" style="width:auto" ${ORDERS_STATE.includeTest ? "checked" : ""}> ${esc(t("ord.showTest"))}</label>
@@ -2237,6 +2248,20 @@ async function viewOrders(v) {
   v.querySelectorAll("button[data-order]").forEach(b => b.addEventListener("click", async () => {
     if (!confirm(t("ord.confirmChange").replace("{s}", t("st." + b.dataset.status)))) return;
     try { await api(`/api/admin/orders/${b.dataset.order}/status`, {method: "POST", body: {status: b.dataset.status}}); showView("orders"); }
+    catch (e) { showErr($("#ordErr"), e); }
+  }));
+  // Fee-confirm (2026-11-20, v19.54): Min types the exact fee per
+  // order; the bot asks the customer to accept it. Re-setting is
+  // allowed only while the customer has not decided yet.
+  v.querySelectorAll("button[data-fee-order]").forEach(b => b.addEventListener("click", async () => {
+    const id = b.dataset.feeOrder;
+    const inp = v.querySelector(`input[data-fee-input="${id}"]`);
+    const noteInp = v.querySelector(`input[data-fee-note="${id}"]`);
+    const fee = inp ? Number(inp.value) : NaN;
+    if (!Number.isFinite(fee) || fee < 0 || fee > 100000) { showErr($("#ordErr"), new Error(t("ord.feeInvalid"))); return; }
+    const note = noteInp ? noteInp.value.trim() : "";
+    if (!confirm(t("ord.feeConfirmQ").replace("{fee}", String(fee)))) return;
+    try { await api(`/api/admin/orders/${id}/fee`, {method: "POST", body: {delivery_fee: fee, fee_note: note || undefined}}); showView("orders"); }
     catch (e) { showErr($("#ordErr"), e); }
   }));
 }
