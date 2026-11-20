@@ -146,6 +146,7 @@ def _default_settings():
         "music_volume": 50,
         "contact": {"phone": "09441582958", "telegram": "@SafeDeliveryone"},
         "banners": [],
+        "help_videos": [],
         "hero_image": None,
         "promo_slots": [],
         "featured_shop_ids": [],
@@ -547,7 +548,7 @@ def _validate_settings_patch(patch):
         return None, "No settings provided"
     allowed = {"global_hours", "delivery", "banners", "registration_form",
                "hero_image", "promo_slots", "featured_shop_ids", "contact",
-               "music_volume"}
+               "music_volume", "help_videos"}
     unknown = sorted(set(patch) - allowed)
     if unknown:
         return None, "Unknown settings key: " + ", ".join(unknown)
@@ -624,6 +625,30 @@ def _validate_settings_patch(patch):
                 "is_active": bool(item.get("is_active", True)),
             })
         cleaned["banners"] = sorted(cleaned_banners, key=lambda b: b["sort_order"])
+    if "help_videos" in patch:
+        videos = patch["help_videos"]
+        if not isinstance(videos, list) or len(videos) > 20:
+            return None, "help_videos must be a list of at most 20 items"
+        cleaned_videos = []
+        for item in videos:
+            if not isinstance(item, dict):
+                return None, "Each help video must be an object"
+            video_url = item.get("video_url")
+            if not _is_https_url(video_url):
+                return None, "Each help video video_url must be a valid HTTPS URL"
+            title = item.get("title", "")
+            if not isinstance(title, str) or len(title) > 120:
+                return None, "Each help video title must be at most 120 characters"
+            sort_order = item.get("sort_order", 0)
+            if isinstance(sort_order, bool) or not isinstance(sort_order, int):
+                return None, "Each help video sort_order must be an integer"
+            cleaned_videos.append({
+                "video_url": video_url,
+                "title": title,
+                "sort_order": sort_order,
+                "is_active": bool(item.get("is_active", True)),
+            })
+        cleaned["help_videos"] = sorted(cleaned_videos, key=lambda v: v["sort_order"])
     if "hero_image" in patch:
         # Media view hero (same style as the existing banner key):
         # one object, or null to clear it.
@@ -1715,6 +1740,13 @@ CREATE TABLE IF NOT EXISTS order_items (
   product_name_snapshot TEXT NOT NULL, unit_price_snapshot REAL NOT NULL CHECK(unit_price_snapshot>=0),
   quantity INTEGER NOT NULL CHECK(quantity>0), line_total REAL NOT NULL CHECK(line_total>=0),
   FOREIGN KEY(order_id) REFERENCES orders(id), FOREIGN KEY(product_id) REFERENCES products(id));
+CREATE TABLE IF NOT EXISTS service_bookings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id TEXT NOT NULL UNIQUE,
+  service TEXT NOT NULL, service_name TEXT NOT NULL,
+  customer_name TEXT NOT NULL, customer_phone TEXT NOT NULL,
+  fields_json TEXT NOT NULL DEFAULT '{}', status TEXT NOT NULL DEFAULT 'new',
+  picked_up INTEGER NOT NULL DEFAULT 0, picked_up_at TEXT,
+  created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS order_status_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, status TEXT NOT NULL,
   note TEXT, actor_type TEXT NOT NULL DEFAULT 'system', created_at TEXT NOT NULL,
@@ -2149,13 +2181,14 @@ _PUBLIC_CORS_PATHS = frozenset({
     "/api/public/shops", "/api/public/products",
     "/api/public/reviews", "/api/public/order-status",
     "/api/public/orders", "/api/public/order-receipt",
+    "/api/public/popular-today", "/api/public/service-bookings",
 })
 
 # Public POST paths: the Mini App submits a review and (server-route,
 # 2026-11-12) an order cross-origin (POST + JSON body), so those two
 # public paths allow POST and Content-Type. Every other public path
 # stays GET-only.
-_PUBLIC_POST_PATHS = frozenset({"/api/public/reviews", "/api/public/orders", "/api/public/order-receipt"})
+_PUBLIC_POST_PATHS = frozenset({"/api/public/reviews", "/api/public/orders", "/api/public/order-receipt", "/api/public/service-bookings"})
 
 # Built-in CORS origins for the public catalogue: the Mini App on
 # GitHub Pages and the unified dashboard on DuckDNS (D2). No wildcard.
@@ -3451,6 +3484,70 @@ def application(environ, start_response):
                      "new", "pending", customer_location_json, order["is_test"]))
             return json_response(start_response, "201 Created", {
                 "order_no": order_no, "status": "pending", "duplicate": False})
+        # POST /api/public/service-bookings — v19.47 (Min 2026-11-20).
+        # The Mini App posts a service booking (school run, bus,
+        # airport, hospital, shopping errands, documents, food,
+        # products) so the bot can message Min on Telegram — the
+        # same server-route pattern as orders. initData HMAC is
+        # required (fail-closed, never unauthenticated); IP rate
+        # limit 10/min. Idempotent on booking_id (SB-YYYYMMDD-NNN):
+        # a retry returns the same row, never a second booking.
+        # Not gated by SAFEDELI_API_ORDERS_ENABLED — bookings are
+        # not orders. The table is created lazily here (the
+        # codebase's own pattern) so a restart picks it up.
+        if method == "POST" and path == "/api/public/service-bookings":
+            client_ip = (environ.get("REMOTE_ADDR") or "").strip() or "unknown"
+            if _public_order_rate_limited("ip:" + client_ip, 10):
+                return json_response(start_response, "429 Too Many Requests",
+                                     {"error": "Too many booking attempts. Please wait a minute and try again."})
+            data = read_json(environ)
+            user = _validate_init_data(data.get("initData"))
+            if user is None:
+                return json_response(start_response, "401 Unauthorized",
+                                     {"error": "Invalid Telegram session. Open the Mini App from @SafeDeli_bot and try again."})
+            if _public_order_rate_limited(f"user:{user['id']}", 5):
+                return json_response(start_response, "429 Too Many Requests",
+                                     {"error": "Too many booking attempts. Please wait a minute and try again."})
+            bk = data.get("booking") if isinstance(data, dict) else None
+            if not isinstance(bk, dict):
+                return json_response(start_response, "400 Bad Request", {"error": "booking is required"})
+            booking_id = (bk.get("booking_id") or "").strip()
+            service = (bk.get("service") or "").strip()
+            service_name = (bk.get("service_name") or "").strip()
+            cname = (bk.get("customer_name") or "").strip()
+            cphone = (bk.get("customer_phone") or "").strip()
+            fields = bk.get("fields") if isinstance(bk.get("fields"), dict) else {}
+            if not re.fullmatch(r"SB-\d{8}-\d{3}", booking_id):
+                return json_response(start_response, "400 Bad Request", {"error": "booking_id is invalid"})
+            if not service or len(service) > 40:
+                return json_response(start_response, "400 Bad Request", {"error": "service is invalid"})
+            if not service_name or len(service_name) > 100:
+                return json_response(start_response, "400 Bad Request", {"error": "service_name is invalid"})
+            if not cname or len(cname) > 100:
+                return json_response(start_response, "400 Bad Request", {"error": "customer_name is required"})
+            if not re.fullmatch(r"09[0-9]{7,9}", cphone):
+                return json_response(start_response, "400 Bad Request", {"error": "customer_phone must be a Myanmar number starting with 09"})
+            if len(fields) > 20:
+                return json_response(start_response, "400 Bad Request", {"error": "too many fields"})
+            fields_json = json.dumps({str(k)[:40]: str(v)[:500] for k, v in fields.items()}, ensure_ascii=False)
+            with connect() as con:
+                con.execute("BEGIN IMMEDIATE")
+                con.execute("CREATE TABLE IF NOT EXISTS service_bookings ("
+                            "id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id TEXT NOT NULL UNIQUE, "
+                            "service TEXT NOT NULL, service_name TEXT NOT NULL, "
+                            "customer_name TEXT NOT NULL, customer_phone TEXT NOT NULL, "
+                            "fields_json TEXT NOT NULL DEFAULT '{}', status TEXT NOT NULL DEFAULT 'new', "
+                            "picked_up INTEGER NOT NULL DEFAULT 0, picked_up_at TEXT, "
+                            "created_at TEXT NOT NULL)")
+                existing = con.execute("SELECT booking_id FROM service_bookings WHERE booking_id=?", (booking_id,)).fetchone()
+                if existing:
+                    con.commit()
+                    return json_response(start_response, "200 OK", {"booking_id": booking_id, "status": "received", "duplicate": True})
+                now = datetime.now(YANGON_TZ)
+                con.execute("INSERT INTO service_bookings (booking_id, service, service_name, customer_name, customer_phone, fields_json, status, created_at) VALUES (?,?,?,?,?,?, 'new', ?)",
+                            (booking_id, service, service_name, cname, cphone, fields_json, now.isoformat(timespec="seconds")))
+                con.commit()
+            return json_response(start_response, "201 Created", {"booking_id": booking_id, "status": "received", "duplicate": False})
         # POST /api/public/order-receipt — receipt-photo Confirm (2026-11-14).
         # The Mini App uploads a screenshot of the order receipt after a
         # failed send. Multipart form-data: text fields initData +
@@ -3870,6 +3967,7 @@ def application(environ, start_response):
                 "global_hours": settings["global_hours"],
                 "delivery": settings["delivery"],
                 "banners": [b for b in settings["banners"] if b.get("is_active")],
+                "help_videos": [v for v in settings.get("help_videos", []) if v.get("is_active")],
                 "promo_slots": list(promo_slots)[:8] if isinstance(promo_slots, list) else [],
                 "featured_shop_ids": list(featured_ids) if isinstance(featured_ids, list) else [],
                 "contact": settings["contact"],
@@ -3898,7 +3996,8 @@ def application(environ, start_response):
                 featured = {s for s in (settings.get("featured_shop_ids") or [])
                             if isinstance(s, int) and not isinstance(s, bool)}
                 rows = con.execute("""SELECT s.id,s.name,s.category,s.area,s.address,s.phone,
-                    s.photo_url,s.maps_url,s.verified,s.is_open,s.status,s.created_at,s.menu_updated_at
+                    s.photo_url,s.maps_url,s.video_url,s.photo_urls,s.interior_photo_urls,s.menu_url,
+                    s.verified,s.is_open,s.status,s.created_at,s.menu_updated_at,s.latitude,s.longitude
                     FROM shops s WHERE s.status='active' AND s.verified=1
                     ORDER BY s.name,s.id LIMIT ?""", (limit,)).fetchall()
                 now_yangon = datetime.now(YANGON_TZ)
@@ -3928,8 +4027,22 @@ def application(environ, start_response):
                         "menu_is_new": _shop_is_new(shop.get("menu_updated_at"), 7, now_yangon),
                         "featured": shop["id"] in featured,
                         "photo_url": shop["photo_url"],
-                        # Public navigation link for the shop. GPS
-                        # coordinates stay private (never served here).
+                        # Shop media (Min 2026-11-19): the video +
+                        # extra photos + menu photo saved in the
+                        # dashboard were never sent here, so the
+                        # Mini App could not show them. Lists are
+                        # stored as JSON text; parse them back.
+                        "video_url": shop["video_url"],
+                        "photo_urls": _shop_media_list(shop.get("photo_urls")),
+                        "interior_photo_urls": _shop_media_list(shop.get("interior_photo_urls")),
+                        "menu_url": shop["menu_url"],
+                        # v19.47 (Min 2026-11-20): GPS IS served now —
+                        # the app needs it for real map pins + nearby
+                        # shops. Only active, verified shops reach
+                        # this endpoint (the WHERE above), so a hidden
+                        # or unverified shop never leaks a position.
+                        "latitude": shop["latitude"],
+                        "longitude": shop["longitude"],
                         "maps_url": shop["maps_url"]})
             return json_response(start_response, "200 OK", {"shops": shops})
         if method == "GET" and path == "/api/public/products":
@@ -3952,8 +4065,11 @@ def application(environ, start_response):
                                    (shop_id,)).fetchone()
                 if not shop:
                     return json_response(start_response, "404 Not Found", {"error": "Shop not found"})
+                # v19.47 (Min 2026-11-20): sold-out dishes are SENT, not hidden —
+                # the Mini App badges them "kout-thwa-pi". is_available
+                # still rides in every row so the app can tell.
                 rows = con.execute("""SELECT id,shop_id,name,price,currency,image_url,group_name,sort_order,is_available
-                    FROM products WHERE shop_id=? AND is_available=1 ORDER BY group_name,sort_order,name,id LIMIT ?""",
+                    FROM products WHERE shop_id=? ORDER BY group_name,sort_order,name,id LIMIT ?""",
                     (shop_id, limit)).fetchall()
             return json_response(start_response, "200 OK", {"products": [{
                 "id": r["id"], "shop_id": r["shop_id"], "name": r["name"], "price": r["price"],
@@ -3980,6 +4096,27 @@ def application(environ, start_response):
                 "price": r["price"], "currency": r["currency"], "image_url": r["image_url"],
                 "category": r["category"], "glyph": r["glyph"], "unit": r["unit"],
                 "sort_order": r["sort_order"]} for r in rows]})
+        # GET /api/public/popular-today — v19.47 (Min 2026-11-20):
+        # the 5 dish names ordered most TODAY (Yangon date), from
+        # real orders only: test orders (is_test) and cancelled
+        # orders never count. The Mini App badges a matching dish
+        # card 'ဒီနေ့ လူကြိုက်များဆုံး'. Empty list = no real orders
+        # yet today — honest, never faked. Matches by exact dish
+        # NAME (orders carry free-text names, no product ids).
+        if method == "GET" and path == "/api/public/popular-today":
+            today = datetime.now(YANGON_TZ).strftime("%Y-%m-%d")
+            with connect() as con:
+                rows = con.execute(
+                    "SELECT oi.product_name_snapshot AS name, "
+                    "SUM(oi.quantity) AS qty "
+                    "FROM order_items oi JOIN orders o ON o.id=oi.order_id "
+                    "WHERE substr(o.created_at,1,10)=? "
+                    "AND COALESCE(o.is_test,0)=0 AND COALESCE(o.order_status,'')!='cancelled' "
+                    "GROUP BY oi.product_name_snapshot "
+                    "ORDER BY qty DESC, name LIMIT 5",
+                    (today,)).fetchall()
+            return json_response(start_response, "200 OK", {"popular": [
+                {"name": r["name"], "count": int(r["qty"])} for r in rows]})
         # --- Customer shop reviews (v19, Min 2026-11-12: real only,
         # never fake) --------------------------------------------------
         # GET /api/public/order-status?idempotency_key=<Mini App submission UUID>
