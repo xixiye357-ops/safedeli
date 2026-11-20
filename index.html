@@ -1600,7 +1600,7 @@ a{color:var(--green2)}
 /* v19.48 CHATS (Hippo-style list — substitute for in-app chat) */
 .chat-search{margin:10px 0 2px}
 .chat-search input{width:100%; padding:11px 14px; border-radius:999px; border:1.5px solid rgba(91,33,182,.25); font-size:14px; font-family:inherit; background:#fff; color:#1F0B45; box-sizing:border-box}
-.chat-row{display:flex; align-items:center; gap:11px; width:100%; text-align:left; background:#fff; border:1.5px solid rgba(91,33,182,.15); border-radius:14px; padding:11px 12px; margin-top:10px; cursor:pointer; font-family:inherit; color:inherit; box-sizing:border-box}
+.chat-row{display:flex; align-items:center; gap:11px; width:100%; text-align:left; background:#fff; border:1.5px solid rgba(91,33,182,.15); border-radius:14px; padding:11px 12px; margin-top:10px; cursor:pointer; text-decoration:none; font-family:inherit; color:inherit; box-sizing:border-box}
 .chat-ava{width:44px; height:44px; flex:0 0 44px; border-radius:50%; background:linear-gradient(135deg,#FDE68A,#F59E0B); display:flex; align-items:center; justify-content:center; font-size:22px; overflow:hidden; color:#3B2F00; position:relative}
 .chat-ava img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:50%}
 .chat-tx{flex:1; min-width:0}
@@ -1901,7 +1901,7 @@ a{color:var(--green2)}
       <div class="sec-head"><h2 data-i18n="chatsTitle">စကားပြောဆိုမှု</h2></div>
       <p class="sec-sub" data-i18n="chatsSub">အက်ဒမင်၊ ဆိုင်၊ ပို့ဆောင်သူနဲ့ ချက်တင်း ပြောလို့ရပါတယ်ရှင့်။</p>
       <div class="chat-search"><input id="chatSearch" type="search" data-i18n-ph="chatsSearchPh" placeholder="ရှာဖွေပါ....." autocomplete="off"></div>
-      <button class="chat-row" id="chatAdminBtn" type="button"><span class="chat-ava">🛵</span><span class="chat-tx"><b>Safe Deli <span class="chat-badge" data-i18n="chatsAdminBadge">အက်ဒမင်</span></b><i data-i18n="chatsAdminSub">အက်ဒမင်နှင့် ချက်တင်းလုပ်ရန်</i></span><span class="ch">›</span></button>
+      <a class="chat-row" id="chatAdminBtn" href="https://t.me/SafeDeliveryone"><span class="chat-ava">🛵</span><span class="chat-tx"><b>Safe Deli <span class="chat-badge" data-i18n="chatsAdminBadge">အက်ဒမင်</span></b><i data-i18n="chatsAdminSub">အက်ဒမင်နှင့် ချက်တင်းလုပ်ရန်</i></span><span class="ch">›</span></a>
       <div id="chatTabs" class="fav-tabs"></div>
       <div id="chatList"></div>
     </div>
@@ -4190,14 +4190,14 @@ function renderChatList() {
   var rows = "";
   if (chatTab === "rider") {
     if ("မင်းမင်း".indexOf(q) >= 0 || "min min".indexOf(q) >= 0) {
-      rows += '<button type="button" class="chat-row" data-tg="rider"><span class="chat-ava">🛵</span><span class="chat-tx"><b>မင်းမင်း</b><i>' + t("chatsRiderSub") + '</i></span><span class="ch">›</span></button>';
+      rows += '<a class="chat-row" href="' + RIDER_TG + '"><span class="chat-ava">🛵</span><span class="chat-tx"><b>မင်းမင်း</b><i>' + t("chatsRiderSub") + '</i></span><span class="ch">›</span></a>';
     }
   } else {
     visibleShops().forEach(function (s) {
       if (q && (s.name || "").toLowerCase().indexOf(q) < 0) return;
       var ph = s.photo_url || s.photo;
       var ava = ph ? esc((s.name || "?").charAt(0)) + '<img src="' + esc(ph) + '" alt="" onerror="this.remove()">' : esc((s.name || "?").charAt(0));
-      rows += '<button type="button" class="chat-row" data-tg="admin"><span class="chat-ava">' + ava + '</span><span class="chat-tx"><b>' + esc(s.name) + '</b><i>' + t("chatsAskViaAdmin") + '</i></span><span class="ch">›</span></button>';
+      rows += '<a class="chat-row" href="' + ADMIN_TG + '"><span class="chat-ava">' + ava + '</span><span class="chat-tx"><b>' + esc(s.name) + '</b><i>' + t("chatsAskViaAdmin") + '</i></span><span class="ch">›</span></a>';
     });
   }
   el.innerHTML = rows || '<div class="chat-empty"><span class="ic">💬</span><b>' + t("chatsEmpty") + '</b></div>';
@@ -5812,9 +5812,12 @@ function orderStatusClass(o) { return ((o && o.receiptSent) || orderSent(o)) ? "
 function openTgLink(url) {
   var w = getTg();
   if (w && typeof w.openTelegramLink === "function") { try { w.openTelegramLink(url); return; } catch (e) {} }
-  var win = null;
-  try { win = window.open(url, "_blank"); } catch (e) {}
-  if (!win) { try { window.location.href = url; } catch (e) {} }
+  /* v19.53 (dead Chats taps, Min 2026-11-20): window.open is unreliable
+     inside Telegram's WebView — it can return a window object while
+     showing nothing, so the old code trusted its return value and never
+     fell through to navigation. Navigate the WebView instead: Telegram
+     intercepts t.me links and opens the chat. */
+  try { window.location.href = url; } catch (e) {}
 }
 function openBotChat() {
   /* v19.10: fresh Telegram read (late SDK injection) — see getTg(). */
@@ -6295,12 +6298,10 @@ var _dct = $("drawerContactTg"); if (_dct) _dct.addEventListener("click", functi
   $("ordersBack").addEventListener("click", function () { go("home"); });
   $("favsBack").addEventListener("click", function () { go("home"); });
   var _cbk = $("chatsBack"); if (_cbk) _cbk.addEventListener("click", function () { go("home"); });
-  var _cab = $("chatAdminBtn"); if (_cab) _cab.addEventListener("click", function () { openTgLink(ADMIN_TG); });
-  var _cl = $("chatList"); if (_cl) _cl.addEventListener("click", function (e) {
-    var b = e.target && e.target.closest ? e.target.closest("[data-tg]") : null;
-    if (!b) return;
-    openTgLink(b.getAttribute("data-tg") === "rider" ? RIDER_TG : ADMIN_TG);
-  });
+  /* v19.53: Chats rows are real <a href="https://t.me/..."> anchors now
+     (Admin card + shop/rider rows) — a tap is a native link tap which
+     Telegram intercepts and opens the chat, so no JS tap handler is
+     needed here (the old openTgLink path was a dead tap on Min's phone). */
   var _cs = $("chatSearch"); if (_cs) _cs.addEventListener("input", function () { chatQuery = this.value; renderChatList(); });
   $("newShopsBack").addEventListener("click", function () { go("home"); });
   $("promosBack").addEventListener("click", function () { go("home"); });
