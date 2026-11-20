@@ -670,6 +670,12 @@ my: {
 "sh.ph.link": "https://…", "sh.ph.links": "တစ်ကြောင်းမှာ လင့်ခ် တစ်ခု",
 "sh.add": "ထည့်မည်", "sh.saving": "သိမ်းနေပါတယ်…", "sh.gpsHint": "GPS pin မထည့်ရင် ဆိုင်က Mini App မှာ မပေါ်ပါ။",
 "sh.mapsHint": "လင့်ခ်ထဲမှာ GPS ပါရင် pin ကို အလိုအလျောက် ဖြည့်ပေးပါမယ်။",
+"sh.gpsBtn": "GPS ယူမယ်",
+"sh.gpsWait": "GPS ယူနေတယ်…",
+"sh.gpsOk": "GPS ရပြီ ✓ — Latitude/Longitude ဖြည့်ပြီးပြီ။",
+"sh.gpsDenied": "Location ခွင့်ပြုပေးပါ — browser Settings → Location → Allow လုပ်ပြီး ပြန်နှိပ်ပါ။",
+"sh.gpsFail": "GPS မရပါ — နံပါတ် ရိုက်ထည့်ပါ။",
+"sh.gpsNoApi": "ဒီ browser မှာ GPS မရပါ — နံပါတ် ရိုက်ထည့်ပါ။",
 "sh.confirmSuspend": "ဒီဆိုင်ကို အက်ပ်က ဖြုတ်မလား။ ဖြုတ်ထားတဲ့ ဆိုင်ကို ဖောက်သည်တွေ မြင်ရမှာ မဟုတ်ပါ။",
 "sh.suspend": "အက်ပ်က ဖြုတ်မည်", "sh.activate": "အက်ပ်မှာ ပြန်ပြမည်",
 "sh.delete": "ဖျက်မည်", "sh.confirmDelete": "ဒီဆိုင်ကို အပြီးဖျက်မလား။ ဆိုင်နဲ့အတူ သူ့ပစ္စည်းတွေ၊ သုံးသပ်ချက်တွေပါ ပျက်သွားမယ်။ ပြန်မရတော့ပါ။",
@@ -1197,6 +1203,12 @@ en: {
 "sh.ph.link": "https://…", "sh.ph.links": "one link per line",
 "sh.add": "Add", "sh.saving": "Saving…", "sh.gpsHint": "Without a GPS pin the shop will not appear in the Mini App.",
 "sh.mapsHint": "If the link has GPS coordinates, the pin is filled in automatically.",
+"sh.gpsBtn": "Get GPS",
+"sh.gpsWait": "Getting GPS…",
+"sh.gpsOk": "GPS ready ✓ — latitude/longitude filled.",
+"sh.gpsDenied": "Please allow Location — browser Settings → Location → Allow, then tap again.",
+"sh.gpsFail": "GPS unavailable — please type the numbers.",
+"sh.gpsNoApi": "GPS is not available in this browser — please type the numbers.",
 "sh.confirmSuspend": "Remove this shop from the app? Customers will not see it.",
 "sh.suspend": "Remove from app", "sh.activate": "Show in app again",
 "sh.delete": "Delete", "sh.confirmDelete": "Delete this shop for good? Its products and reviews go with it. This cannot be undone.",
@@ -2454,6 +2466,7 @@ async function viewShops(v) {
         <div class="full"><label class="flabel">${esc(t("sh.f.maps"))} ${esc(t("app.optional"))}</label><input id="shMaps" type="url" inputmode="url" placeholder="${esc(t("sh.ph.link"))}"><div class="muted small" style="margin-top:4px">${t("sh.mapsHint")}</div></div>
         <div><label class="flabel">${esc(t("sh.f.lat"))} ${esc(t("app.optional"))}</label><input id="shLat" type="number" step="any" placeholder="${esc(t("sh.ph.lat"))}"></div>
         <div><label class="flabel">${esc(t("sh.f.lon"))} ${esc(t("app.optional"))}</label><input id="shLon" type="number" step="any" placeholder="${esc(t("sh.ph.lon"))}"></div>
+        <div class="full"><button type="button" class="btn gold" id="shGpsBtn" style="width:100%;background:linear-gradient(135deg,#FFD34D,#D4AF37);color:#241F33">📍 ${esc(t("sh.gpsBtn"))}</button><div class="muted small" id="shGpsNote" style="margin-top:4px"></div></div>
         <div class="form-sec">${esc(t("sh.sec.hours"))}</div>
         <div><label class="flabel">${esc(t("sh.f.open"))}</label>${timePickerHTML("open")}</div>
         <div><label class="flabel">${esc(t("sh.f.close"))}</label>${timePickerHTML("close")}</div>
@@ -2474,6 +2487,21 @@ async function viewShops(v) {
   if (shMaps) shMaps.addEventListener("change", () => {
     const p = parseMapsLink(shMaps.value.trim());
     if (p) { $("#shLat").value = p.lat; $("#shLon").value = p.lon; }
+  });
+  // "GPS yuu-mal" — fill lat/lon from the phone GPS when Min stands at the shop.
+  const shGpsBtn = $("#shGpsBtn"), shGpsNote = $("#shGpsNote");
+  if (shGpsBtn) shGpsBtn.addEventListener("click", () => {
+    if (!navigator.geolocation) { if (shGpsNote) shGpsNote.textContent = t("sh.gpsNoApi"); return; }
+    shGpsBtn.disabled = true; shGpsBtn.textContent = t("sh.gpsWait");
+    if (shGpsNote) shGpsNote.textContent = "";
+    navigator.geolocation.getCurrentPosition(pos => {
+      $("#shLat").value = pos.coords.latitude; $("#shLon").value = pos.coords.longitude;
+      if (shGpsNote) shGpsNote.textContent = t("sh.gpsOk");
+      shGpsBtn.disabled = false; shGpsBtn.textContent = "📍 " + t("sh.gpsBtn");
+    }, err => {
+      if (shGpsNote) shGpsNote.textContent = (err && err.code === 1) ? t("sh.gpsDenied") : t("sh.gpsFail");
+      shGpsBtn.disabled = false; shGpsBtn.textContent = "📍 " + t("sh.gpsBtn");
+    }, {enableHighAccuracy: true, timeout: 15000, maximumAge: 0});
   });
   // Media upload: pick a photo/video from the phone's files — no link
   // box (Min 2026-11-13: links are not wanted). The uploaded URL is
