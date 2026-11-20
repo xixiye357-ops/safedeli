@@ -493,6 +493,8 @@ my: {
 "ban.imgPh": "ပုံ URL (https://…)", "ban.titlePh": "ခေါင်းစဉ် (ဥပမာ — ဆိုင်အများ ကြားကနေ အော်ဒါတစ်ခါတည်း မှာလို့ ရပါတယ်)",
 "ban.linkPh": "လင့်ခ် (မရှိရင် ဗလာ)", "ban.save": "သိမ်းမည်", "ban.del": "ဖျက်မည်",
 "ban.up": "↑", "ban.down": "↓", "ban.upload": "ပုံ တင်မည်", "ban.saved": "သိမ်းပြီးပြီ", "ban.export": "⬇ banners.json ထုတ်မည်",
+  "vid.t": "အသုံးပြုနည်း ဗီဒီယိုများ", "vid.empty": "ဗီဒီယို မရှိသေးပါ — အောက်က ဗီဒီယိုတင်ပြီး ထည့်ပါ။", "vid.add": "ဗီဒီယို ထည့်မည်",
+  "vid.urlPh": "ဗီဒီယို URL (https://…)", "vid.titlePh": "ခေါင်းစဉ် (ဥပမာ — မှာယူနည်း)", "vid.upload": "ဗီဒီယို တင်မည်", "vid.note": "ဒီမှာ ထည့်ထားတဲ့ ဗီဒီယိုတွေ app ရဲ့ အကူအညီ (Help) မှာ ပေါ်မည်။ ဗီဒီယိုဖိုင် အများဆုံး 100 MB။",
 "rep.t": "အစီရင်ခံစာ", "rep.s": "အော်ဒါများ အကျဉ်းချုပ် — ရက်စွဲ ရွေးပြီး CSV ထုတ်နိုင်တယ်။",
 "rep.total": "အော်ဒါ စုစုပေါင်း", "rep.feeTotal": "ပို့ခ စုစုပေါင်း", "rep.csv": "CSV ထုတ်မည်",
 "rep.pickDate": "ရက်စွဲ ရွေးမည်", "rep.all": "အကုန်", "rep.byDay": "တစ်နေ့ချင်းစီ",
@@ -1018,6 +1020,8 @@ en: {
 "ban.imgPh": "Image URL (https://…)", "ban.titlePh": "Title (e.g. One order, many shops)",
 "ban.linkPh": "Link (optional)", "ban.save": "Save", "ban.del": "Delete",
 "ban.up": "↑", "ban.down": "↓", "ban.upload": "Upload a picture", "ban.saved": "Saved", "ban.export": "⬇ Export banners.json",
+  "vid.t": "How-to videos", "vid.empty": "No videos yet — upload one below.", "vid.add": "Add a video",
+  "vid.urlPh": "Video URL (https://…)", "vid.titlePh": "Title (e.g. How to order)", "vid.upload": "Upload a video", "vid.note": "Videos added here appear in the app's Help section. Max 100 MB per video.",
 "rep.t": "Reports", "rep.s": "Order summary — pick a date and export CSV.",
 "rep.total": "Total orders", "rep.feeTotal": "Delivery fees total", "rep.csv": "Export CSV",
 "rep.pickDate": "Pick a date", "rep.all": "All", "rep.byDay": "Per day",
@@ -1993,6 +1997,37 @@ async function viewBanners(v) {
   const d = await api("/api/admin/settings").catch(() => ({}));
   const set = d.settings || d;
   let banners = Array.isArray(set.banners) ? set.banners.slice() : [];
+  let helpVideos = Array.isArray(set.help_videos) ? set.help_videos.slice() : [];
+  const vidRows = helpVideos.map((v, i) => `<div class="ov-promo-row">
+      <div style="width:76px;height:36px;background:#3A2866;border-radius:6px;flex:0 0 76px;display:flex;align-items:center;justify-content:center;font-size:20px">🎬</div>
+      <div style="flex:1;min-width:0"><div class="nm">#${i + 1} — ${esc(v.title || "")}</div><div class="sub">${esc(v.video_url || "")}</div></div>
+      <button class="btn sm" onclick="window.__vidMove(${i},-1)" ${i === 0 ? "disabled" : ""}>${esc(t("ban.up"))}</button>
+      <button class="btn sm" onclick="window.__vidMove(${i},1)" ${i === helpVideos.length - 1 ? "disabled" : ""}>${esc(t("ban.down"))}</button>
+      <button class="btn danger sm" onclick="window.__vidDel(${i})">${esc(t("ban.del"))}</button></div>`).join("");
+  window.__vidSaveAll = async (list) => {
+    await api("/api/admin/settings", {method: "PUT", body: {help_videos: list}});
+    showView("banners");
+  };
+  window.__vidMove = async (i, dir) => {
+    const j = i + dir;
+    if (j < 0 || j >= helpVideos.length) return;
+    const tmp = helpVideos[i]; helpVideos[i] = helpVideos[j]; helpVideos[j] = tmp;
+    helpVideos.forEach((b, k) => { b.sort_order = k + 1; });
+    await window.__vidSaveAll(helpVideos);
+  };
+  window.__vidDel = async (i) => {
+    if (!confirm(t("common.confirmDelete") || "Delete?")) return;
+    helpVideos.splice(i, 1);
+    helpVideos.forEach((b, k) => { b.sort_order = k + 1; });
+    await window.__vidSaveAll(helpVideos);
+  };
+  window.__vidAdd = async () => {
+    const url = (document.getElementById("vidUrl") || {}).value || "";
+    const title = (document.getElementById("vidTitle") || {}).value || "";
+    if (!url.trim()) { document.getElementById("vidErr").textContent = t("vid.urlPh"); return; }
+    helpVideos.push({video_url: url.trim(), title: title.trim(), sort_order: helpVideos.length + 1, is_active: true});
+    await window.__vidSaveAll(helpVideos);
+  };
   const rows = banners.map((b, i) => `<div class="ov-promo-row">
       ${b.image_url ? `<img src="${esc(b.image_url)}" alt="">` : `<div style="width:76px;height:36px;background:#3A2866;border-radius:6px;flex:0 0 76px"></div>`}
       <div style="flex:1;min-width:0"><div class="nm">#${i + 1} — ${esc(b.title || "")}</div><div class="sub">${esc(b.image_url || "")}${b.link_url ? " → " + esc(b.link_url) : ""}</div></div>
@@ -2050,7 +2085,18 @@ async function viewBanners(v) {
           <label class="btn ghost" style="display:inline-flex;align-items:center;gap:6px">${esc(t("ban.upload"))}<input type="file" id="banFile" accept="image/*" style="display:none"></label>
         </div></div>
       <div class="err-text" id="banErr"></div><div class="ok-text" id="banOk"></div>
-      <p class="muted small" style="margin-top:10px">${esc(t("ov2.promoNote"))}</p></div>`;
+      <p class="muted small" style="margin-top:10px">${esc(t("ov2.promoNote"))}</p></div>`
+    + `<div class="card" style="margin-top:14px"><h2>${esc(t("vid.t"))}</h2>
+      ${helpVideos.length ? vidRows : `<div class="empty">${esc(t("vid.empty"))}</div>`}
+      <div class="form-grid" style="margin-top:14px">
+        <div class="full"><label class="flabel">${esc(t("vid.urlPh"))}</label><input id="vidUrl" placeholder="https://…"></div>
+        <div><label class="flabel">${esc(t("vid.titlePh"))}</label><input id="vidTitle"></div>
+        <div class="full" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" onclick="window.__vidAdd()">${esc(t("vid.add"))}</button>
+          <label class="btn ghost" style="display:inline-flex;align-items:center;gap:6px">${esc(t("vid.upload"))}<input type="file" id="vidFile" accept="video/*" style="display:none"></label>
+        </div></div>
+      <div class="err-text" id="vidErr"></div><div class="ok-text" id="vidOk"></div>
+      <p class="muted small" style="margin-top:10px">${esc(t("vid.note"))}</p></div>`;
   const fi = document.getElementById("banFile");
   if (fi) fi.addEventListener("change", async () => {
     const f = fi.files && fi.files[0];
@@ -2063,6 +2109,19 @@ async function viewBanners(v) {
       document.getElementById("banImg").value = r.url || "";
       document.getElementById("banOk").textContent = t("ban.saved");
     } catch (e) { document.getElementById("banErr").textContent = uploadErrText(e); }
+  });
+  const vf = document.getElementById("vidFile");
+  if (vf) vf.addEventListener("change", async () => {
+    const f = vf.files && vf.files[0];
+    if (!f) return;
+    const fd = new FormData();
+    fd.append("kind", "video");
+    fd.append("file", f);
+    try {
+      const r = await apiUpload("/api/admin/media", fd);
+      document.getElementById("vidUrl").value = r.url || "";
+      document.getElementById("vidOk").textContent = t("ban.saved");
+    } catch (e) { document.getElementById("vidErr").textContent = uploadErrText(e); }
   });
 }
 
