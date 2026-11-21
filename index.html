@@ -2057,7 +2057,12 @@ var CAT_GLYPHS = {
   snacks: ["dumpling", "bao", "cake", "icecream"],
   rice: ["fried", "grill", "seafood"],
   noodles: ["noodle"],
-  bbq: ["grill", "seafood"]
+  bbq: ["grill", "seafood"],
+  /* v19.65 (Min 2026-11-21): dinner had NO dishes — no dish is filed
+     under "dinner" and there was no glyph fallback, so the dinner chip
+     showed 0 items and Min thought the new menu never arrived. Dinner
+     now shows the hearty dishes (bowls, grill, fried, noodles). */
+  dinner: ["bowl", "grill", "fried", "noodle"]
 };
 function dishMatchesCat(d, id) {
   if (id === "all" || id === "food") return true;
@@ -3053,7 +3058,9 @@ var API_BASE = "https://safedeli.net"; /* ONE place to change the dashboard orig
 var liveShops = [];      /* normalized API shops (id "api:<raw>") */
 var livePromos = [];     /* promo_slots from settings, mapped to PROMOS shape */
 var liveFeatured = [];   /* featured_shop_ids from settings (raw API ids) */
-var liveDishes = null;   /* normalized home dishes from /api/public/home-dishes; null = use POPULAR */
+var liveDishes = null;
+var dishesLoading = false;   /* v19.64: home-dishes fetch in progress */
+var dishesLoadFailed = false; /* v19.64: all fetch tries failed, no dishes */   /* normalized home dishes from /api/public/home-dishes; null = use POPULAR */
 var liveSettings = { globalHours: null, feeMin: null, contact: null };
 var catalogueState = "pending"; /* pending | live | fallback */
 function shopTypeByKey(k) {
@@ -3247,21 +3254,27 @@ function saveCachedDishes(list) {
   try { localStorage.setItem(HOME_DISHES_CACHE_KEY, JSON.stringify(list)); } catch (e) {}
 }
 function loadHomeDishes(attempt) {
-  fetchJson(API_BASE + "/api/public/home-dishes?t=" + Date.now(), 20000).then(function (data) {
+  /* v19.64 (Min 2026-11-21): the menu stayed BLANK on his slowest line —
+     20s was too short for the 16KB dish list at ~0.4KB/s, and the silent
+     empty grid gave him nothing to retry. Now 45s, up to 4 tries, with a
+     visible loading state and a retry button (see renderDishGrid). */
+  if (attempt === 1) { dishesLoading = true; dishesLoadFailed = false; }
+  fetchJson(API_BASE + "/api/public/home-dishes?t=" + Date.now(), 45000).then(function (data) {
     var list = (data && Array.isArray(data.dishes)) ? data.dishes : [];
     if (!list.length) {
-      if (attempt < 3) { setTimeout(function () { loadHomeDishes(attempt + 1); }, 2000); }
-      else { liveDishes = null; }
+      if (attempt < 4) { setTimeout(function () { loadHomeDishes(attempt + 1); }, 2000); }
+      else { liveDishes = null; dishesLoading = false; dishesLoadFailed = true; if (lastView === "home") renderHome(); else if (lastView === "cats") renderCatGrid(); }
       return;
     }
     liveDishes = list.map(normalizeHomeDish);
     saveCachedDishes(list);
     dishOrder = null; /* the owner's server order wins over any shuffle */
+    dishesLoading = false; dishesLoadFailed = false;
     if (lastView === "home") renderHome();
     else if (lastView === "cats") renderCatGrid();
   }, function () {
-    if (attempt < 3) { setTimeout(function () { loadHomeDishes(attempt + 1); }, 2000); }
-    else { liveDishes = null; }
+    if (attempt < 4) { setTimeout(function () { loadHomeDishes(attempt + 1); }, 2000); }
+    else { liveDishes = null; dishesLoading = false; dishesLoadFailed = true; if (lastView === "home") renderHome(); else if (lastView === "cats") renderCatGrid(); }
   });
 }
 function fetchCatalogue() {
@@ -3993,6 +4006,19 @@ function renderDishGrid() {
   var list = dishDisplayList(filteredDishes());
   var grid = $("dishGrid");
   if (!list.length) {
+    /* v19.64: never leave the menu silently blank. While the dish list
+       is still loading, say so; when every try failed, offer a retry
+       button instead of the bare empty state. */
+    if (dishesLoading) {
+      grid.innerHTML = '<div class="empty">' + ic("search", "") + '<b>ဟင်းစာရင်း ဆွဲနေပါတယ်ရှင့်…</b>လိုင်းနှေးရင် ခဏ ကြာနိုင်ပါတယ်ရှင့်။</div>';
+      return;
+    }
+    if (dishesLoadFailed) {
+      grid.innerHTML = '<div class="empty">' + ic("search", "") + '<b>ဟင်းစာရင်း ဆွဲလို့ မရဘူးရှင့်။</b>လိုင်းနှေးနေလို့ ဖြစ်နိုင်ပါတယ်ရှင့်။<div class="send-col"><button class="cta green big" type="button" id="dishRetryBtn">ပြန်ဆွဲမည်</button></div></div>';
+      var rb = $("dishRetryBtn");
+      if (rb) rb.addEventListener("click", function () { dishesLoadFailed = false; loadHomeDishes(1); renderDishGrid(); });
+      return;
+    }
     grid.innerHTML = '<div class="empty">' + ic("search", "") + '<b>' + t("noDishesT") + '</b>' + t("noDishesD") + '</div>';
     return;
   }
