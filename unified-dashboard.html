@@ -118,6 +118,23 @@ th{text-align:left;color:var(--muted);font-size:12.5px;padding:8px 8px;border-bo
 td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
 tr:last-child td{border-bottom:0}
 .tbl-wrap{overflow-x:auto}
+/* Burmese confirm modal (v19.56): native confirm() buttons follow the
+   browser language (Chinese on Min's phone). This asks in Burmese. */
+.cfm-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px}
+.cfm-box{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:420px;width:100%}
+.cfm-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+/* Fee box (v19.56): on phones the fee row stacks vertically with big
+   tap targets, and the Orders table scrolls sideways instead of
+   squishing its columns. */
+.feebox{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.feebox input[data-fee-input]{width:80px}
+.feebox input[data-fee-note]{width:120px}
+.orders-tbl table{min-width:680px}
+@media (max-width:640px){
+  .feebox{flex-direction:column;align-items:stretch}
+  .feebox input[data-fee-input],.feebox input[data-fee-note]{width:100%}
+  .feebox button{width:100%;min-height:44px;font-size:15px}
+}
 .pill{display:inline-block;border-radius:20px;padding:2px 10px;font-size:12.5px;font-weight:700;white-space:nowrap}
 .pill.green{background:var(--green-bg);color:#166534} .pill.amber{background:var(--amber-bg);color:#92400E}
 .pill.red{background:var(--red-bg);color:#991B1B} .pill.blue{background:var(--blue-bg);color:#1E40AF}
@@ -454,6 +471,25 @@ function tableOrEmpty(head, rowsHtml) {
 }
 function showErr(el, err) { if (el) el.textContent = t("common.err") + " — " + (err.message || err); }
 
+// Burmese confirm modal (v19.56): native confirm() buttons follow the
+// browser language (Chinese on Min's phone). askConfirm asks the same
+// question in Burmese and resolves true/false.
+function askConfirm(msg) {
+  return new Promise((res) => {
+    const back = document.getElementById("cfmBack");
+    const m = document.getElementById("cfmMsg");
+    const yes = document.getElementById("cfmYes");
+    const no = document.getElementById("cfmNo");
+    if (!back || !m || !yes || !no) { res(confirm(msg)); return; }
+    m.textContent = msg;
+    back.classList.remove("hidden");
+    const done = (v) => { back.classList.add("hidden"); yes.onclick = null; no.onclick = null; back.onclick = null; res(v); };
+    yes.onclick = () => done(true);
+    no.onclick = () => done(false);
+    back.onclick = (e) => { if (e.target === back) done(false); };
+  });
+}
+
 /* ---------- language + theme + per-user preferences (localStorage only) ----------
    Language, theme, notifications, auto-refresh and page size are PER-USER
    preferences saved on this device only (localStorage keys safedeli_dash_*).
@@ -461,7 +497,13 @@ function showErr(el, err) { if (el) el.textContent = t("common.err") + " — " +
 const I18N = {
 my: {
 "nav.overview": "ခြုံငုံ", "nav.orders": "အော်ဒါများ",
-"nav.reviews": "သုံးသပ်ချက်များ", "nav.shops": "ဆိုင်များ", "nav.products": "ပစ္စည်းများ", "nav.homeDishes": "ပင်မဟင်းပွဲများ",
+"nav.errors": "Error များ",
+"err.t": "Error များ",
+"err.s": "စနစ် error တွေ — အော်ဒါ ပို့မရတာ၊ database error တွေ",
+"err.th.type": "အမျိုးအစား",
+"err.th.msg": "အကြောင်းအရာ",
+"err.th.order": "အော်ဒါ",
+"nav.reviews": "သုံးသပ်ချက်များ", "nav.shops": "ဆိုင်များ", "nav.products": "ပစ္စည်းများ", "nav.homeDishes": "ပင်မဟင်းပွဲများ", "nav.suppliers": "ဝယ်ယူရန် ဆိုင်များ",
 "nav.customers": "ဖောက်သည်များ", "nav.delivery": "ပို့ဆောင်မှု", "nav.riders": "ပို့ဆောင်သူများ",
 "nav.finance": "ငွေစာရင်း", "nav.media": "မီဒီယာ", "nav.settings": "ဆက်တင်",
 "nav.categories": "အမျိုးအစား", "nav.coin": "Coin & ဆု", "nav.game": "ဂိမ်းစင်တာ",
@@ -642,7 +684,7 @@ my: {
 "ord.th.shopItem": "ဆိုင် / ပစ္စည်း", "ord.th.fee": "ပို့ခ", "ord.th.action": "လုပ်ဆောင်ချက်",
 "ord.prev": "← ရှေ့", "ord.next": "နောက် →", "ord.pageOf": "စာမျက်နှာ {p} / စုစုပေါင်း {n} ခု",
 "ord.confirmChange": "အော်ဒါကို \"{s}\" အဖြစ် ပြောင်းမလား?",
-"ord.feePh": "ဂဏန်း ရိုက်ပါ", "ord.feeNotePh": "အကြောင်းပြချက် (ရွေးချယ်စရာ)", "ord.feeConfirm": "ပို့ခ အတည်ပြုမည်", "ord.feeConfirmQ": "ပို့ခ {fee} ဘတ် အတည်ပြုမလား?", "ord.feeWaiting": "ဧည့်သည် လက်ခံဖို့ စောင့်နေသည်", "ord.feeAccepted": "ဧည့်သည် လက်ခံပြီး", "ord.feeInvalid": "ပို့ခ ဂဏန်း မှန်ကန်စွာ ရိုက်ပါ။",
+"ord.feePh": "ဂဏန်း ရိုက်ပါ", "ord.feeNotePh": "အကြောင်းပြချက် (ရွေးချယ်စရာ)", "ord.feeConfirm": "ပို့ခ အတည်ပြုမည်", "ord.feeConfirmQ": "ပို့ခ {fee} ဘတ် အတည်ပြုမလား?", "ord.feeWaiting": "ဧည့်သည် လက်ခံဖို့ စောင့်နေသည်", "ord.feeAccepted": "ဧည့်သည် လက်ခံပြီး", "ord.feeInvalid": "ပို့ခ ဂဏန်း မှန်ကန်စွာ ရိုက်ပါ။", "ord.feeAccept": "✅ ဧည့်သည် သဘောတူပြီ — ဆက်လုပ်မည်", "ord.feeDecline": "❌ ပယ်ဖျက်မည်", "ord.feeAcceptQ": "ဧည့်သည် သဘောတူပြီလို့ မှတ်ပြီး ဆိုင်ကို ပို့ပေးမလား?", "ord.feeDeclineQ": "ဒီအော်ဒါကို ပယ်ဖျက်မလား? ဧည့်သည်ကို အကြောင်းကြားပေးပါမယ်။",
 "common.approve": "အတည်ပြုမည်", "common.reject": "ပယ်ချမည်", "common.rejectReason": "ပယ်ချရတဲ့ အကြောင်းရင်း (မဖြစ်မနေ ရေးရပါမယ်):", "common.all": "အားလုံး",
 "app.optional": "(မဖြစ်မနေ မဟုတ်)",
 "app.th.shop": "ဆိုင်", "app.th.decision": "ဆုံးဖြတ်ချက်",
@@ -749,7 +791,13 @@ my: {
 },
 th: {
 "nav.overview": "ภาพรวม", "nav.orders": "คำสั่งซื้อ",
-"nav.reviews": "รีวิว", "nav.shops": "ร้านค้า", "nav.products": "สินค้า", "nav.homeDishes": "อาหารหน้าแรก",
+"nav.errors": "ข้อผิดพลาด",
+"err.t": "ข้อผิดพลาด",
+"err.s": "ข้อผิดพลาดของระบบ — ส่งออเดอร์ไม่ได้, ข้อผิดพลาดฐานข้อมูล",
+"err.th.type": "ประเภท",
+"err.th.msg": "ข้อความ",
+"err.th.order": "ออเดอร์",
+"nav.reviews": "รีวิว", "nav.shops": "ร้านค้า", "nav.products": "สินค้า", "nav.homeDishes": "อาหารหน้าแรก", "nav.suppliers": "ร้านซัพพลายเออร์",
 "nav.customers": "ลูกค้า", "nav.delivery": "การจัดส่ง", "nav.riders": "ไรเดอร์",
 "nav.finance": "การเงิน", "nav.media": "สื่อ", "nav.settings": "ตั้งค่า",
 "nav.categories": "หมวดหมู่", "nav.coin": "Coin & รางวัล", "nav.game": "ศูนย์เกม",
@@ -895,7 +943,7 @@ th: {
 "ord.th.shopItem": "ร้านค้า / สินค้า", "ord.th.fee": "ค่าส่ง", "ord.th.action": "การดำเนินการ",
 "ord.prev": "← ก่อนหน้า", "ord.next": "ถัดไป →", "ord.pageOf": "หน้า {p} / ทั้งหมด {n} รายการ",
 "ord.confirmChange": "เปลี่ยนคำสั่งซื้อนี้เป็น \"{s}\" ใช่ไหม?",
-"ord.feePh": "ใส่ตัวเลข", "ord.feeNotePh": "เหตุผล (ไม่บังคับ)", "ord.feeConfirm": "ยืนยันค่าส่ง", "ord.feeConfirmQ": "ยืนยันค่าส่ง {fee} บาทใช่ไหม?", "ord.feeWaiting": "รอลูกค้ายืนยัน", "ord.feeAccepted": "ลูกค้ายืนยันแล้ว", "ord.feeInvalid": "กรุณาใส่ค่าส่งให้ถูกต้อง",
+"ord.feePh": "ใส่ตัวเลข", "ord.feeNotePh": "เหตุผล (ไม่บังคับ)", "ord.feeConfirm": "ยืนยันค่าส่ง", "ord.feeConfirmQ": "ยืนยันค่าส่ง {fee} บาทใช่ไหม?", "ord.feeWaiting": "รอลูกค้ายืนยัน", "ord.feeAccepted": "ลูกค้ายืนยันแล้ว", "ord.feeInvalid": "กรุณาใส่ค่าส่งให้ถูกต้อง", "ord.feeAccept": "✅ ลูกค้าตกลงแล้ว — ดำเนินการต่อ", "ord.feeDecline": "❌ ยกเลิกออเดอร์", "ord.feeAcceptQ": "บันทึกว่าลูกค้าตกลงแล้วและส่งออเดอร์ให้ร้านใช่ไหม?", "ord.feeDeclineQ": "ยกเลิกออเดอร์นี้ใช่ไหม? จะแจ้งลูกค้าให้ทราบ",
 "common.approve": "อนุมัติ", "common.reject": "ปฏิเสธ", "common.rejectReason": "เหตุผลที่ปฏิเสธ (จำเป็นต้องระบุ):", "common.all": "ทั้งหมด",
 "app.optional": "(ไม่บังคับ)",
 "app.th.shop": "ร้านค้า", "app.th.decision": "การตัดสินใจ",
@@ -996,7 +1044,13 @@ th: {
 },
 en: {
 "nav.overview": "Overview", "nav.orders": "Orders",
-"nav.reviews": "Reviews", "nav.shops": "Shops", "nav.products": "Products", "nav.homeDishes": "Home dishes",
+"nav.errors": "Errors",
+"err.t": "Errors",
+"err.s": "System errors — failed order intake, database errors",
+"err.th.type": "Type",
+"err.th.msg": "Message",
+"err.th.order": "Order",
+"nav.reviews": "Reviews", "nav.shops": "Shops", "nav.products": "Products", "nav.homeDishes": "Home dishes", "nav.suppliers": "Supplier Shops",
 "nav.customers": "Customers", "nav.delivery": "Delivery", "nav.riders": "Riders",
 "nav.finance": "Finance", "nav.media": "Media", "nav.settings": "Settings",
 "nav.categories": "Categories", "nav.coin": "Coin & Rewards", "nav.game": "Game Center",
@@ -1177,7 +1231,7 @@ en: {
 "ord.th.shopItem": "Shop / Item", "ord.th.fee": "Delivery fee", "ord.th.action": "Action",
 "ord.prev": "← Previous", "ord.next": "Next →", "ord.pageOf": "Page {p} / {n} total",
 "ord.confirmChange": "Change this order to \"{s}\"?",
-"ord.feePh": "Enter amount", "ord.feeNotePh": "Reason (optional)", "ord.feeConfirm": "Confirm fee", "ord.feeConfirmQ": "Confirm delivery fee {fee} baht?", "ord.feeWaiting": "Waiting for customer", "ord.feeAccepted": "Customer accepted", "ord.feeInvalid": "Please enter a valid fee amount.",
+"ord.feePh": "Enter amount", "ord.feeNotePh": "Reason (optional)", "ord.feeConfirm": "Confirm fee", "ord.feeConfirmQ": "Confirm delivery fee {fee} baht?", "ord.feeWaiting": "Waiting for customer", "ord.feeAccepted": "Customer accepted", "ord.feeInvalid": "Please enter a valid fee amount.", "ord.feeAccept": "✅ Customer agreed — proceed", "ord.feeDecline": "❌ Cancel order", "ord.feeAcceptQ": "Mark the fee as accepted by the customer and send the order to the shop?", "ord.feeDeclineQ": "Cancel this order? The customer will be told.",
 "common.approve": "Approve", "common.reject": "Reject", "common.rejectReason": "Reason for rejection (required):", "common.all": "All",
 "app.optional": "(optional)",
 "app.th.shop": "Shop", "app.th.decision": "Decision",
@@ -1284,7 +1338,13 @@ en: {
 },
 zh: {
 "nav.overview": "总览", "nav.orders": "订单",
-"nav.reviews": "评价", "nav.shops": "店铺", "nav.products": "商品", "nav.homeDishes": "首页菜品",
+"nav.errors": "错误",
+"err.t": "错误",
+"err.s": "系统错误——订单提交失败、数据库错误",
+"err.th.type": "类型",
+"err.th.msg": "信息",
+"err.th.order": "订单",
+"nav.reviews": "评价", "nav.shops": "店铺", "nav.products": "商品", "nav.homeDishes": "首页菜品", "nav.suppliers": "供货商店",
 "nav.customers": "顾客", "nav.delivery": "配送", "nav.riders": "骑手",
 "nav.finance": "财务", "nav.media": "媒体", "nav.settings": "设置",
 "nav.categories": "分类", "nav.coin": "金币与奖励", "nav.game": "游戏中心",
@@ -1430,7 +1490,7 @@ zh: {
 "ord.th.shopItem": "店铺 / 商品", "ord.th.fee": "配送费", "ord.th.action": "操作",
 "ord.prev": "← 上一页", "ord.next": "下一页 →", "ord.pageOf": "第 {p} 页 / 共 {n} 条",
 "ord.confirmChange": "将此订单改为“{s}”吗？",
-"ord.feePh": "输入金额", "ord.feeNotePh": "原因（可选）", "ord.feeConfirm": "确认配送费", "ord.feeConfirmQ": "确认配送费 {fee} 铢？", "ord.feeWaiting": "等待顾客确认", "ord.feeAccepted": "顾客已接受", "ord.feeInvalid": "请输入正确的配送费。",
+"ord.feePh": "输入金额", "ord.feeNotePh": "原因（可选）", "ord.feeConfirm": "确认配送费", "ord.feeConfirmQ": "确认配送费 {fee} 铢？", "ord.feeWaiting": "等待顾客确认", "ord.feeAccepted": "顾客已接受", "ord.feeInvalid": "请输入正确的配送费。", "ord.feeAccept": "✅ 顾客已同意 — 继续", "ord.feeDecline": "❌ 取消订单", "ord.feeAcceptQ": "标记为顾客已接受配送费并发送给店铺吗？", "ord.feeDeclineQ": "取消此订单吗？会通知顾客。",
 "common.approve": "批准", "common.reject": "拒绝", "common.rejectReason": "拒绝原因（必填）：", "common.all": "全部",
 "app.optional": "（可选）",
 "app.th.shop": "店铺", "app.th.decision": "决定",
@@ -1662,6 +1722,7 @@ const ADMIN_NAV = [
   {id:"orders", sub:"Orders", roles:["owner","finance","support","operations"], badge:"orders"},
   {id:"shops", sub:"Shops", roles:["owner","finance","support","operations"], badge:"shops"},
   {id:"homeDishes", sub:"Home Dishes", roles:["owner"], badge:"dishes"},
+  {id:"suppliers", sub:"Supplier Shops", roles:["owner"]},
   {id:"categories", sub:"Categories", roles:["owner"], badge:"cats"},
   {id:"customers", sub:"Customers", roles:["owner","finance","support","operations"], badge:"customers"},
   {id:"reviews", sub:"Reviews", roles:["owner","operations"], badge:"reviews"},
@@ -1671,6 +1732,7 @@ const ADMIN_NAV = [
   {id:"media", sub:"Media", roles:["owner"]},
   {id:"banners", sub:"Promotions", roles:["owner"], badge:"banners"},
   {id:"reports", sub:"Reports", roles:["owner","finance"]},
+  {id:"errors", sub:"Errors", roles:["owner","support","operations"]},
   {id:"finance", sub:"Payments", roles:["owner","finance"]},
   {id:"settings", sub:"Settings", roles:["owner","finance","support","operations"]},
   {id:"products", sub:"Products", roles:["owner","finance","support","operations"], sect:"nav.adminSect"},
@@ -1687,7 +1749,7 @@ const MERCHANT_NAV = [
 ];
 const ORDER_NEXT = {pending:["confirmed","cancelled"], confirmed:["preparing","cancelled"], preparing:["delivering","cancelled"], delivering:["delivered","cancelled"]};
 
-const NAV_ICONS = {overview:"📊", orders:"🛒", reviews:"⭐", shops:"🏪", products:"📦", homeDishes:"🍜", customers:"👥", delivery:"🚚", riders:"🛵", finance:"💰", media:"🖼️", settings:"⚙️", users:"👤", audit:"📋", moverview:"🏪", morders:"🛒", mproducts:"📦", payouts:"💸", prefs:"⚙️", account:"👤", categories:"🗂️", coin:"🪙", game:"🎮", banners:"🏷️", reports:"📊"};
+const NAV_ICONS = {overview:"📊", orders:"🛒", reviews:"⭐", shops:"🏪", products:"📦", homeDishes:"🍜", customers:"👥", delivery:"🚚", riders:"🛵", finance:"💰", media:"🖼️", settings:"⚙️", users:"👤", audit:"📋", errors:"⚠️", moverview:"🏪", morders:"🛒", mproducts:"📦", payouts:"💸", prefs:"⚙️", account:"👤", categories:"🗂️", coin:"🪙", game:"🎮", banners:"🏷️", suppliers:"🛍️", reports:"📊"};
 let NAV_BADGES = {};
 async function refreshNavBadges() {
   try {
@@ -1790,7 +1852,7 @@ async function ovDishMove(id, dir) {
   showView("overview");
 }
 async function ovDishDel(id) {
-  if (!confirm(t("common.confirmDelete") || "Delete?")) return;
+  if (!(await askConfirm(t("common.confirmDelete") || "Delete?"))) return;
   await api("/api/admin/home-dishes/" + id, {method: "DELETE"});
   showView("overview");
 }
@@ -2032,7 +2094,7 @@ async function viewBanners(v) {
     await window.__vidSaveAll(helpVideos);
   };
   window.__vidDel = async (i) => {
-    if (!confirm(t("common.confirmDelete") || "Delete?")) return;
+    if (!(await askConfirm(t("common.confirmDelete") || "Delete?"))) return;
     helpVideos.splice(i, 1);
     helpVideos.forEach((b, k) => { b.sort_order = k + 1; });
     await window.__vidSaveAll(helpVideos);
@@ -2062,7 +2124,7 @@ async function viewBanners(v) {
     await window.__banSaveAll(banners);
   };
   window.__banDel = async (i) => {
-    if (!confirm(t("common.confirmDelete") || "Delete?")) return;
+    if (!(await askConfirm(t("common.confirmDelete") || "Delete?"))) return;
     banners.splice(i, 1);
     banners.forEach((b, k) => { b.sort_order = k + 1; });
     await window.__banSaveAll(banners);
@@ -2176,6 +2238,60 @@ function viewComingSoon(v) {
 
 /* ---------- Orders (customer orders) ---------- */
 let ORDERS_STATE = {page: 1, includeTest: false, q: "", date: ""};
+/* ---------- Supplier shops (v19.59, Min 2026-11-21) ----------
+   Owner-only directory of the Tachileik shops whose menus Min
+   confirmed (59 items, 2026-11-21). NOT shown in the customer app.
+   Min sends new shops (menu / shop / link / info) and Muse adds
+   them here — Min does not add them himself. Phingpha's 2 items
+   are 2023 old prices Min did NOT confirm, so they are flagged. */
+const SUPPLIERS = [
+{name:"FULL ME UP", area:"Sansai Lue (ဆန်ဆိုင်းလူး) — အွန်လိုင်းသီးသန့်၊ ဆိုင်ရှေ့ မရှိ", phones:[], fb:"https://www.facebook.com/788636147664874/", line:"https://line.me/ti/g/BEDchb9q2j", hours:"11:00–19:00 (တခါတလေ 20:00 ထိ)", maps:"", items:[["ဝက်သားကြော် ထမင်း","85"],["ခေါက်ဆွဲသုပ် (မီယမ် မီ ကလပ်)","79"],["မာမာခေါက်ဆွဲ (ကြက်ဥ + ပုစွန်)","55"],["ကြက်သားမျှင် ခေါက်ဆွဲ","60"],["ကြက်ဥမွှေ ထမင်း (ဘေကွန်)","59"],["ပုစွန်တု ကြော်ဂျုံလုံး / အာလူးကြော် (လှုပ်ပြီး)","55"],["စတော်ဘယ်ရီ နို့စိမ်း","50"],["မတ်ချား စစ်စစ်","50"],["စတော်ဘယ်ရီ မတ်ချား","60"],["ပေါင်မုန့် အပေါ်လောင်","49"],["ပေါင်မုန့် (နို့ + ထောပတ် + သကြား)","20"]]},
+{name:"You SHABU & BBQ", area:"တာချီလိတ် — လမ်းနာမည် မတွေ့သေး (Plus code FV3W+3M3)", phones:["0992924477"], phoneNote:"Google မှာ +959776005430 လည်း ရှိတယ် — ဖုန်းဆက်ပြီး အတည်ပြုပါ", fb:"https://www.facebook.com/2315847811979099/", line:"", hours:"16:30–22:00 (Google က 15:00–23:00 လို့ ပြောတယ်)", maps:"https://www.google.com/maps/search/?api=1&query=20.452647,99.896656", items:[["ရှာဘူ + ထောပတ်ကင် ဘူဖေး (၁ ယောက်) — စတင်ဈေး","229"],["ရှာဘူ ဘူဖေး — အမဲ/ဝက်/ပင်လယ်စာ (၁ ယောက်)","329"],["သြစတြေးလျ အမဲသား ရှာဘူ ဟော့ပေါ့ ဘူဖေး — စတင်ဈေး","229"]]},
+{name:"TT Bakery", area:"တာချီလိတ် — လိပ်စာ အတိအကျ မတွေ့သေး (ပို့ဆောင် — Sansai–Hong Luk 100฿+ အခမဲ့)", phones:["+959694338296"], fb:"https://www.facebook.com/102922001771403/", line:"", hours:"", maps:"", items:[["အုန်းသီး ကိတ်မုန့်","60"],["ငှက်ပျောသီး ကိတ်မုန့်","40"],["ချိစ်ကိတ် အလောင်","70"],["ကိတ်အချပ် — အုန်းသီး","20"],["ကိတ်အချပ် — လိမ္မော်","20"],["ကိတ်အချပ် — ချောကလက်","20"],["ကိတ်အချပ် — စတော်ဘယ်ရီ","20"],["ကိတ်အချပ် — ဘလူးဘယ်ရီ","20"],["ပေါင်မုန့် (၁ လုံး) — ၁၀ ဝယ် ၁ လက်ဆောင်","20"]]},
+{name:"ပင်ဟွမ်ဝမ် (Pang Hom Wan)", area:"Hong Luk (ဟုန်လွတ်), တာချီလိတ် — လမ်းနာမည် မတွေ့သေး", phones:["09777340449"], fb:"https://www.facebook.com/110779625116488/", line:"", hours:"09:00–18:00", maps:"", items:[["ပေါင်မုန့်ကင် — ထောပတ် သကြား","20"],["ပေါင်မုန့်ကင် — ထောပတ် နို့ သကြား","20"],["ပေါင်မုန့်ကင် — ချောကလက်","25"],["ပေါင်မုန့်ကင် — စံခယား (အုန်းယို)","25"],["ပေါင်မုန့်ကင် — ငှက်ပျော ချောကလက်","30"],["ပေါင်မုန့်ကင် — ငရုတ်ယို + ဝက်သားမျှင်","25"],["ပေါင်မုန့်ကင် — ငရုတ်ယို + ပုစွန်တု","25"],["ပီဇာ ပေါင်မုန့်ကင် — ပြောင်း + ချိစ်","35"],["ပီဇာ ပေါင်မုန့်ကင် — ပုစွန်တု + ချိစ်","35"],["မီနီ ဆန်းဒဝှစ် — ဝက်သားမျှင် သုပ်ဆော့","25"],["စတော်ဘယ်ရီ နို့စိမ်း (၁ ပုလင်း) — ၃ ပုလင်း 85฿၊ ၅ ပုလင်း 140฿","30"],["စတော်ဘယ်ရီ ဒိန်ချဉ် (၁ ပုလင်း) — ၃ ပုလင်း 100฿","35"],["ပန်းရောင်နို့ (၁ ပုလင်း)","20"],["ထိုင်းလက်ဖက်ရည် (၁ ပုလင်း)","20"]]},
+{name:"Croffle kub", area:"Sansai (ဆန်ဆိုင်), တာချီလိတ် — လိပ်စာ အတိအကျ မတွေ့သေး", phones:[], fb:"https://www.facebook.com/1220206384510705/", line:"", hours:"12:00–18:00", maps:"", items:[["အိမ်လုပ် ဂရိ ဒိန်ချဉ် — အသေး (S)","79"],["အိမ်လုပ် ဂရိ ဒိန်ချဉ် — အလတ် (M)","99"],["အိမ်လုပ် ဂရိ ဒိန်ချဉ် — အကြီး (L)","129"]]},
+{name:"Luxe Bakery", area:"တာချီလိတ် — လိပ်စာ အတိအကျ မတွေ့သေး", phones:[], fb:"https://www.facebook.com/100576585896937/", line:"", hours:"09:00–20:00", maps:"", items:[["Signature ထောပတ် ကွတ်ကီး (၁ ဘူး)","50"]]},
+{name:"Spud in your hood", area:"Golf Course Road, Crystal Bar အနီး, Regina Hotel — တာချီလိတ်", phones:["09883486463","+959680157127"], fb:"https://www.facebook.com/281495231720058/", line:"", hours:"14:00–21:00", maps:"", items:[["အာလူးဖုတ် မူရင်း + ချိစ်","80"],["အာလူးဖုတ် + ချိစ် + ပြောင်း","100"],["အာလူးဖုတ် + ချိစ် + ဘေကွန်","100"],["အာလူးဖုတ် + ချိစ် + တူနာ (Tuna Spud)","110"],["အာလူးဖုတ် + ချိစ် + ဝက်သားနှပ်","120"],["အာလူးဖုတ် + ချိစ် + ကြက်သားနှပ်","120"],["အာလူးဖုတ် + ချိစ် + အမဲသား ဟင်း","130"]]},
+{name:"Enjoy Restaurant", area:"SP ဆီဆိုင် မျက်နှာချင်းဆိုင်, မြို့ပြင်, တာချီလိတ် (Plus code GW5M+4R)", phones:["+959672011844"], fb:"https://www.facebook.com/profile.php?id=61551360297764", line:"", email:"enjoyrestaurant22@gmail.com", hours:"Wongnai က 21:00 ထိ၊ Google က 24 နာရီ လို့ ပြောတယ် — အတည်ပြုဖို့ လို", maps:"https://www.google.com/maps/search/?api=1&query=20.507517,99.935624", items:[["အမဲသား လှေခေါက်ဆွဲ","60"],["ထိုင်း လက်ဖက်ရည်အေး (၁ ခွက်)","30"],["ကာပရောင် ဝက်သားနှပ် ထမင်း + ကြက်ဥမွှေ အထူး","80"]]},
+{name:"Phingpha Cafe & Restaurant", area:"Boundary Rd, တာချီလိတ် (Plus code CWX2+M9)", phones:["+959774772642"], fb:"https://www.facebook.com/Phingphatck/", line:"", email:"forever.best2012@gmail.com", hours:"Wongnai 11:00–22:00 / Google 10:00–21:30 — မတူဘူး", maps:"https://www.google.com/maps/search/?api=1&query=20.449124,99.900823", note:"ဈေးဟောင်း (2023) — bro မအတည်ပြုရသေး၊ ပင်မ menu မှာ မထည့်ထားဘူး", items:[["T-Bone steak","289"],["ပဲပြာပန်း သံပုရာ အချိုရည်","65"]]},
+{name:"The Moon Garden", area:"တောင်ကုန်း / လယ်ကွင်းရှုခင်း, တာချီလိတ် (Plus code GW9M+GH) — လိပ်စာ အတိအကျ မတွေ့သေး", phones:[], fb:"", line:"", hours:"11:00–22:00", maps:"", items:[["ပုစွန် ပတ်ထိုင်း","129"]]},
+{name:"The Circle Cafe", area:"No. 14 Thazin Rd, အဝိုင်းအနီး, Tar Lot Market အပြင်, တာချီလိတ်", phones:["+959764800868"], phoneNote:"ဖုန်းဟောင်းများ +95947590063 / +95 9 524 0887 (မသုံးတော့ဘူး ဖြစ်နိုင်)", fb:"https://facebook.com/1581055202171893", line:"", email:"thecircle.tachileik@gmail.com", hours:"09:00–21:00 (Wongnai က 06:00–22:00 လို့ ပြောတယ်)", maps:"https://www.google.com/maps/search/?api=1&query=20.446649,99.879881", items:[["လာတေး ကော်ဖီ","55"]]},
+{name:"Min ကိုယ်တိုင် (ဆိုင်မရှိ)", area:"bro သိတဲ့ ဈေးတွေ — ဆိုင်ကနေ ဝယ်စရာ မလို", phones:null, fb:"", line:"", hours:"", maps:"", items:[["ရှမ်းခေါက်ဆွဲ","35"],["ကြက်ကြော် (အရွယ် / အပိုင်း အလိုက်)","15 / 20 / 30 / 40"],["ကောက်ညှင်း","10"],["ဖက်ထုတ် ပေါင်း","50"],["Bubble Tea","50"],["ပေါက်စီ (အရွယ် အလိုက်)","15 / 20"]]},
+];
+
+function viewSuppliers(v) {
+  const card = (s) => {
+    const c = [];
+    if (s.area) c.push(`<div>📍 ${esc(s.area)}</div>`);
+    if (s.phones && s.phones.length) {
+      c.push(`<div>📞 ` + s.phones.map(p => `<a href="tel:${esc(p.replace(/[^+0-9]/g, ""))}">${esc(p)}</a>`).join(" / ") + (s.phoneNote ? ` <span class="muted small">${esc(s.phoneNote)}</span>` : "") + `</div>`);
+    } else if (s.phones) {
+      c.push(`<div>📞 <span class="muted">ဖုန်း — မတွေ့သေး</span></div>`);
+    }
+    if (s.fb) c.push(`<div>📘 <a href="${esc(s.fb)}" target="_blank" rel="noopener">Facebook</a></div>`);
+    if (s.line) c.push(`<div>💬 <a href="${esc(s.line)}" target="_blank" rel="noopener">LINE group</a></div>`);
+    if (s.email) c.push(`<div>✉️ ${esc(s.email)}</div>`);
+    if (s.hours) c.push(`<div>🕐 ${esc(s.hours)}</div>`);
+    if (s.maps) c.push(`<div>🗺️ <a href="${esc(s.maps)}" target="_blank" rel="noopener">Google Maps</a></div>`);
+    const rows = (s.items || []).map(it => `<tr><td>${esc(it[0])}</td><td style="text-align:right;white-space:nowrap"><b>${esc(it[1])} ฿</b></td></tr>`).join("");
+    return `<div class="card"><h2>${esc(s.name)}</h2>${s.note ? `<p class="muted">${esc(s.note)}</p>` : ""}<div style="display:grid;gap:4px;margin:8px 0">${c.join("")}</div><div class="tbl-wrap"><table><tbody>${rows}</tbody></table></div></div>`;
+  };
+  v.innerHTML = head("ဝယ်ယူရန် ဆိုင်များ", "bro အတွက်ပဲ")
+    + `<div class="card"><p>ဒီအကန့်က bro အတွက်ပဲ — ဧည့်သည် app မှာ မပြဘူး။ ဆိုင်တွေဆီက ပစ္စည်းတွေ သွားဝယ်ဖို့ လမ်းညွှန်ပါ။ ဆိုင်အသစ် ထပ်ထည့်ချင်ရင် bro က menu / ဆိုင် / လင့် / အချက်အလက် ပေးလိုက် — Muse က ထည့်ပေးမယ်။ bro ကိုယ်တိုင် ထည့်စရာ မလိုဘူး။</p></div>`
+    + SUPPLIERS.map(card).join("");
+}
+
+async function viewErrors(v) {
+  // Errors view (2026-11-20, v19.55, Min): how Min knows when
+  // something failed — the API's error_log (order intake failures,
+  // database errors). The bot also alerts him on system errors.
+  const d = await api("/api/admin/errors");
+  const rows = (d.errors || []).map(e => `<tr><td><span class="muted small">${fmtDate(e.created_at)}</span></td>
+    <td><b>${esc(e.type || "")}</b></td><td>${esc(e.message || "")}</td>
+    <td><span class="muted small">${esc(e.order_no || "")}</span></td></tr>`).join("");
+  v.innerHTML = head(t("err.t"), t("err.s"))
+    + `<div class="card">${tableOrEmpty(`<th>${esc(t("dl.th.date"))}</th><th>${esc(t("err.th.type"))}</th><th>${esc(t("err.th.msg"))}</th><th>${esc(t("err.th.order"))}</th>`, rows)}</div>`;
+}
 async function viewOrders(v) {
   // Order lookup (Min 2026-11-19): date picker (one day) + order-no /
   // phone search (server-side, all orders) + daily total line.
@@ -2194,8 +2310,13 @@ async function viewOrders(v) {
     // fee per order here (30 baht is only the minimum). The bot then
     // asks the customer to accept it; the shop hears only after.
     const feeState = o.fee_status === "accepted" ? `<span class="pill">✅ ${esc(t("ord.feeAccepted"))}</span>` : o.fee_status === "pending" ? `<span class="pill">⏳ ${esc(t("ord.feeWaiting"))}</span>` : "";
+    // v19.57: when the fee is pending (set, customer undecided), Min
+    // can accept it on the customer's behalf or cancel the order.
+    const feeDecide = o.fee_status === "pending"
+      ? `<button class="btn sm green" data-fee-accept="${o.id}">${esc(t("ord.feeAccept"))}</button><button class="btn sm danger" data-fee-decline="${o.id}">${esc(t("ord.feeDecline"))}</button>`
+      : "";
     const feeBox = (canChange && !o.is_test && (o.order_status || "pending") === "pending" && o.fee_status !== "accepted" && o.fee_status !== "declined")
-      ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;align-items:center"><input type="number" min="0" max="100000" step="1" value="${o.delivery_fee != null ? o.delivery_fee : 30}" data-fee-input="${o.id}" style="width:80px" placeholder="${esc(t("ord.feePh"))}"><span>฿</span><input type="text" maxlength="200" value="${esc(o.fee_note || "")}" data-fee-note="${o.id}" style="width:120px" placeholder="${esc(t("ord.feeNotePh"))}"><button class="btn sm" data-fee-order="${o.id}">${esc(t("ord.feeConfirm"))}</button>${feeState}</div>`
+      ? `<div class="feebox"><input type="number" min="0" max="100000" step="1" value="${o.delivery_fee != null ? o.delivery_fee : 30}" data-fee-input="${o.id}" placeholder="${esc(t("ord.feePh"))}"><span>฿</span><input type="text" maxlength="200" value="${esc(o.fee_note || "")}" data-fee-note="${o.id}" placeholder="${esc(t("ord.feeNotePh"))}"><button class="btn sm" data-fee-order="${o.id}">${esc(t("ord.feeConfirm"))}</button>${feeState}${feeDecide}</div>`
       : (o.fee_status === "accepted" ? `<div style="margin-top:6px">${feeState}</div>` : "");
     return `<tr><td><b>${esc(o.order_no)}</b>${o.is_test ? ' <span class="pill test">TEST</span>' : ""}<br><span class="muted small">${fmtDate(o.created_at)}</span></td>
       <td>${esc(o.customer_name || "")}<br><span class="muted small">${esc(o.sender_phone || "")}</span></td>
@@ -2208,7 +2329,7 @@ async function viewOrders(v) {
        <button class="btn ghost sm" id="csvBtn">${esc(t("ord.csv"))}</button>${ME.role === "owner" ? ` <button class="btn danger sm" id="clearTestBtn">${esc(t("ord.clearTest"))}</button>` : ""}`)
     + `<div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px"><input type="date" id="ordDate" value="${ORDERS_STATE.date}" style="width:150px"><input type="search" id="ordQ" data-i18n-ph="ord.searchPh" placeholder="${esc(t("ord.searchPh"))}" value="${esc(ORDERS_STATE.q)}" style="flex:1;min-width:140px"><button class="btn sm" id="ordSearchBtn">${esc(t("ord.searchBtn"))}</button>${(ORDERS_STATE.q || ORDERS_STATE.date) ? `<button class="btn ghost sm" id="ordClearFilter">${esc(t("ord.clearFilter"))}</button>` : ""}</div>`
     + ((ORDERS_STATE.q || ORDERS_STATE.date) ? `<div class="notice blue" style="margin-bottom:10px">${esc(t("ord.filterSummary").replace("{label}", ORDERS_STATE.date || ("\u{1F50D} " + ORDERS_STATE.q)).replace("{n}", fmtNum(d.total)).replace("{fee}", fmtNum(d.fee_total || 0)))}</div>` : "")
-    + `<div class="err-text" id="ordErr"></div><div class="card">${tableOrEmpty(`<th>${esc(t("ov.th.order"))}</th><th>${esc(t("ov.th.customer"))}</th><th>${esc(t("ord.th.shopItem"))}</th><th>${esc(t("ov.th.status"))}</th><th>${esc(t("ord.th.fee"))}</th><th>${esc(t("ord.th.action"))}</th>`, rows)}
+    + `<div class="err-text" id="ordErr"></div><div class="card orders-tbl">${tableOrEmpty(`<th>${esc(t("ov.th.order"))}</th><th>${esc(t("ov.th.customer"))}</th><th>${esc(t("ord.th.shopItem"))}</th><th>${esc(t("ov.th.status"))}</th><th>${esc(t("ord.th.fee"))}</th><th>${esc(t("ord.th.action"))}</th>`, rows)}
       <div class="pager"><button class="btn ghost sm" id="pgPrev" ${d.page <= 1 ? "disabled" : ""}>${esc(t("ord.prev"))}</button><span>${esc(t("ord.pageOf").replace("{p}", String(d.page)).replace("{n}", fmtNum(d.total)))}</span><button class="btn ghost sm" id="pgNext">${esc(t("ord.next"))}</button></div>
       </div>`;
   if (ORDERS_STATE.blockedNote) { $("#ordErr").textContent = t("ord.clearTestBlocked").replace("{n}", ORDERS_STATE.blockedNote); ORDERS_STATE.blockedNote = null; }
@@ -2237,7 +2358,7 @@ async function viewOrders(v) {
       const all = await api("/api/admin/orders?include_test=1&limit=500");
       const tests = (all.orders || []).filter(o => o.is_test || CLEAR_TEST_LEGACY.includes(o.order_no));
       if (!tests.length) { $("#ordErr").textContent = t("ord.clearTestNone"); return; }
-      if (!confirm(t("ord.confirmClearTest").replace("{n}", String(tests.length)))) return;
+      if (!(await askConfirm(t("ord.confirmClearTest").replace("{n}", String(tests.length))))) return;
       const r = await api("/api/admin/orders/clear-test", {method: "POST"});
       if ((r.blocked_order_nos || []).length) ORDERS_STATE.blockedNote = r.blocked_order_nos.join(", ");
       showView("orders");
@@ -2246,7 +2367,7 @@ async function viewOrders(v) {
   $("#pgPrev").addEventListener("click", () => { if (ORDERS_STATE.page > 1) { ORDERS_STATE.page--; showView("orders"); } });
   $("#pgNext").addEventListener("click", () => { ORDERS_STATE.page++; showView("orders"); });
   v.querySelectorAll("button[data-order]").forEach(b => b.addEventListener("click", async () => {
-    if (!confirm(t("ord.confirmChange").replace("{s}", t("st." + b.dataset.status)))) return;
+    if (!(await askConfirm(t("ord.confirmChange").replace("{s}", t("st." + b.dataset.status))))) return;
     try { await api(`/api/admin/orders/${b.dataset.order}/status`, {method: "POST", body: {status: b.dataset.status}}); showView("orders"); }
     catch (e) { showErr($("#ordErr"), e); }
   }));
@@ -2260,9 +2381,27 @@ async function viewOrders(v) {
     const fee = inp ? Number(inp.value) : NaN;
     if (!Number.isFinite(fee) || fee < 0 || fee > 100000) { showErr($("#ordErr"), new Error(t("ord.feeInvalid"))); return; }
     const note = noteInp ? noteInp.value.trim() : "";
-    if (!confirm(t("ord.feeConfirmQ").replace("{fee}", String(fee)))) return;
+    if (!(await askConfirm(t("ord.feeConfirmQ").replace("{fee}", String(fee))))) return;
+    b.disabled = true;
     try { await api(`/api/admin/orders/${id}/fee`, {method: "POST", body: {delivery_fee: fee, fee_note: note || undefined}}); showView("orders"); }
-    catch (e) { showErr($("#ordErr"), e); }
+    catch (e) { b.disabled = false; showErr($("#ordErr"), e); }
+  }));
+  // Fee decision by Min (2026-11-21, v19.57): when the customer never
+  // taps ✅/❌, Min can accept the fee (the bot sends the order to the
+  // shop) or cancel the order (the customer is told).
+  v.querySelectorAll("button[data-fee-accept]").forEach(b => b.addEventListener("click", async () => {
+    const id = b.dataset.feeAccept;
+    if (!(await askConfirm(t("ord.feeAcceptQ")))) return;
+    b.disabled = true;
+    try { await api(`/api/admin/orders/${id}/fee-decision`, {method: "POST", body: {decision: "accepted"}}); showView("orders"); }
+    catch (e) { b.disabled = false; showErr($("#ordErr"), e); }
+  }));
+  v.querySelectorAll("button[data-fee-decline]").forEach(b => b.addEventListener("click", async () => {
+    const id = b.dataset.feeDecline;
+    if (!(await askConfirm(t("ord.feeDeclineQ")))) return;
+    b.disabled = true;
+    try { await api(`/api/admin/orders/${id}/fee-decision`, {method: "POST", body: {decision: "declined"}}); showView("orders"); }
+    catch (e) { b.disabled = false; showErr($("#ordErr"), e); }
   }));
 }
 
@@ -2291,7 +2430,7 @@ async function viewReviews(v) {
       <div class="err-text" id="revErr"></div></div>`;
   v.querySelector("#revFilter").addEventListener("change", e => { REV_FILTER = e.target.value; showView("reviews"); });
   v.querySelectorAll("button[data-revappr]").forEach(b => b.addEventListener("click", async () => {
-    if (!confirm(t("rev.confirmApprove"))) return;
+    if (!(await askConfirm(t("rev.confirmApprove")))) return;
     try { await api("/api/admin/reviews/" + b.dataset.revappr + "/approve", {method: "POST", body: {}}); showView("reviews"); }
     catch (e) { showErr($("#revErr"), e); }
   }));
@@ -2567,7 +2706,7 @@ async function viewShops(v) {
   }));
   v.querySelectorAll("[data-sh-toggle]").forEach(b => b.addEventListener("click", async () => {
     const toStatus = b.dataset.shStatus;
-    if (toStatus === "suspended" && !confirm(t("sh.confirmSuspend"))) return;
+    if (toStatus === "suspended" && !(await askConfirm(t("sh.confirmSuspend")))) return;
     try { await api(`/api/admin/shops/${b.dataset.shToggle}`, {method: "PUT", body: {status: toStatus}}); showView("shops"); }
     catch (e) { shopErr($("#shErr"), e); }
   }));
@@ -2575,7 +2714,7 @@ async function viewShops(v) {
   // The server blocks it when the shop has orders or a linked merchant
   // account; those errors surface via shopErr, like the other shop errors.
   v.querySelectorAll("[data-sh-delete]").forEach(b => b.addEventListener("click", async () => {
-    if (!confirm(t("sh.confirmDelete"))) return;
+    if (!(await askConfirm(t("sh.confirmDelete")))) return;
     try { await api(`/api/admin/shops/${b.dataset.shDelete}`, {method: "DELETE"}); showView("shops"); }
     catch (e) { shopErr($("#shErr"), e); }
   }));
@@ -2626,6 +2765,19 @@ async function viewShops(v) {
 }
 
 /* ---------- Products ---------- */
+async function prodSave(id, fields) {
+  // Inline product edit (name / price): same pattern as ovDishSave.
+  // An empty or invalid price is rejected and the list re-renders,
+  // restoring the old value (product price cannot be cleared).
+  try {
+    if ("price" in fields && (fields.price == null || isNaN(fields.price) || fields.price < 0)) {
+      showErr($("#prodErr"), "price must be a number");
+      showView("products");
+      return;
+    }
+    await api(`/api/admin/products/${id}`, {method: "PUT", body: fields});
+  } catch (e) { showErr($("#prodErr"), e); showView("products"); }
+}
 async function viewProducts(v) {
   const d = await api("/api/admin/products?limit=50");
   const canEdit = ["owner", "finance"].includes(ME.role);
@@ -2649,8 +2801,8 @@ async function viewProducts(v) {
         ? `<button class="btn sm" data-prod-up="${p.id}" ${i === 0 ? "disabled" : ""} aria-label="up">↑</button> <button class="btn sm" data-prod-down="${p.id}" ${i === sec.items.length - 1 ? "disabled" : ""} aria-label="down">↓</button>`
         : "";
       return `<tr><td data-lbl=""><div id="pt-${p.id}">${photo}</div>${canEdit ? `<div class="up-row"><input id="pf-${p.id}" type="file" accept="image/*" data-prod-photo="${p.id}"></div><div class="up-status" id="ps-${p.id}"></div>` : ""}</td>
-      <td data-lbl="${esc(t("prod.th.product"))}"><b>${esc(p.name)}</b><br><span class="muted small">${esc(p.description || "")}</span><br><span class="muted small">${esc(p.shop_name || ("#" + p.shop_id))}</span></td>
-      <td data-lbl="${esc(t("prod.th.price"))}">${p.price != null ? "฿" + fmtNum(p.price) : "—"}</td>
+      <td data-lbl="${esc(t("prod.th.product"))}">${canEdit ? `<input value="${esc(p.name)}" onchange="prodSave(${p.id},{name:this.value.trim()})" aria-label="dish name">` : `<b>${esc(p.name)}</b>`}<br><span class="muted small">${esc(p.description || "")}</span><br><span class="muted small">${esc(p.shop_name || ("#" + p.shop_id))}</span></td>
+      <td data-lbl="${esc(t("prod.th.price"))}">${canEdit ? `<input type="number" min="0" step="1" value="${p.price != null ? p.price : ""}" style="width:92px" onchange="prodSave(${p.id},{price:this.value===''?null:parseFloat(this.value)})" aria-label="dish price">` : (p.price != null ? "฿" + fmtNum(p.price) : "—")}</td>
       <td data-lbl="${esc(t("ov.th.status"))}">${p.is_available ? `<span class="pill green">${esc(t("prod.available"))}</span>` : `<span class="pill grey">${esc(t("prod.unavailable"))}</span>`}</td>
       <td data-lbl="">${moveBtns}</td></tr>`;
     }).join("");
@@ -2789,7 +2941,7 @@ async function viewHomeDishes(v) {
   v.querySelectorAll("[data-hd-down]").forEach(b => b.addEventListener("click", () => move(Number(b.dataset.hdDown), 1)));
   // Delete.
   v.querySelectorAll("[data-hd-delete]").forEach(b => b.addEventListener("click", async () => {
-    if (!confirm(t("hd.confirmDelete"))) return;
+    if (!(await askConfirm(t("hd.confirmDelete")))) return;
     try {
       await api(`/api/admin/home-dishes/${b.dataset.hdDelete}`, {method: "DELETE"});
       showView("homeDishes");
@@ -3045,7 +3197,7 @@ async function viewSettings(v) {
       catch (e) { showErr($("#stErr"), e); }
     }));
     wrap.querySelectorAll("[data-st-del]").forEach(b => b.addEventListener("click", async () => {
-      if (!confirm(t("set.types.confirmDel"))) return;
+      if (!(await askConfirm(t("set.types.confirmDel")))) return;
       try { await api(`/api/admin/shop-types/${encodeURIComponent(b.dataset.stDel)}`, {method: "DELETE"}); showView("settings"); }
       catch (e) { showErr($("#stErr"), e); }
     }));
@@ -3200,7 +3352,7 @@ async function viewPayouts(v) {
 const VIEWS = {overview: viewOverview, orders: viewOrders, reviews: viewReviews, shops: viewShops,
   products: viewProducts, homeDishes: viewHomeDishes, customers: viewCustomers, delivery: viewDelivery, riders: viewRiders,
   finance: viewFinance, media: viewMedia, settings: viewSettings, users: viewUsers, audit: viewAudit,
-  categories: viewCategories, coin: viewComingSoon, game: viewComingSoon, banners: viewBanners, reports: viewReports,
+  categories: viewCategories, coin: viewComingSoon, game: viewComingSoon, banners: viewBanners, suppliers: viewSuppliers, reports: viewReports, errors: viewErrors,
   moverview: viewMerchantOverview, morders: viewMerchantOrders, mproducts: viewMerchantProducts, payouts: viewPayouts, prefs: viewPrefs};
 
 /* ---------- search filter (current view's table rows) ---------- */
@@ -3256,5 +3408,6 @@ $("#loginForm").addEventListener("submit", async e => {
   }
 })();
 </script>
+<div id="cfmBack" class="cfm-back hidden"><div class="cfm-box"><div id="cfmMsg" style="font-size:15px;line-height:1.6"></div><div class="cfm-btns"><button class="btn ghost" id="cfmNo">မလုပ်တော့ဘူး</button><button class="btn" id="cfmYes">အတည်ပြုမည်</button></div></div></div>
 </body>
 </html>
