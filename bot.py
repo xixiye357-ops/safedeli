@@ -4022,7 +4022,15 @@ async def send_order_cards(context, order: dict, order_no: str) -> bool:
             card += "စမ်းသပ်အော်ဒါ (TEST) — နမူနာ ဆိုင်မှ စမ်းသပ်မှာယူခြင်း ဖြစ်ပါတယ်ရှင့်\n"
         if order.get("shop"):
             card += f"ဆိုင်: {order['shop']}\n"
-        card += f"မှာသူ: {order['customer_name']}\n" + format_summary(order, order_no)
+        card += f"မှာသူ: {order['customer_name']}\n"
+        # v19.57 (Min 2026-11-21): Min could not tell WHICH Telegram
+        # account placed an order (only the phone showed). A tappable
+        # link opens the customer's account so he can message them.
+        # Phone orders have no chat id and get no link (the phone is
+        # already in the summary below).
+        if order.get("customer_chat_id"):
+            card += f"👤 အကောင့်: tg://user?id={order['customer_chat_id']}\n"
+        card += format_summary(order, order_no)
         if order.get("note"):
             card += f"\nမှတ်ချက်: {order['note']}"
         card += "\n\n💰 ပစ္စည်း + ပို့ခ ဈေးကို ဧည့်သည်ကို ပြန်ပို့ပေးပါ။"
@@ -4048,8 +4056,12 @@ async def send_order_cards(context, order: dict, order_no: str) -> bool:
                 logger.exception(
                     "owner card failed for %s (attempt %d)", order_no, attempt + 1
                 )
-    # Also tell the shop (Part 2) — never blocks the customer flow.
-    if not order.get("is_test"):
+    # v19.54 FEE-CONFIRM (Min 2026-11-20): the shop card is HELD
+    # until the customer accepts the delivery fee — the fee_decision
+    # handler sends it (notify_shop_of_order) on fee_ok. A test order
+    # never gets a shop card anyway; a re-delivered order whose fee
+    # was already accepted goes straight to the shop.
+    if not order.get("is_test") and order.get("fee_status") == "accepted":
         try:
             await notify_shop_of_order(context, order, order_no)
         except Exception:
@@ -4526,13 +4538,12 @@ async def _deliver_api_order(context, conn, order_id, order, order_no):
     double-confirming the customer. So the fix here is only
     send_order_cards' loud logging, not a reorder."""
     customer_chat_id = order.get("customer_chat_id")
-    if not customer_chat_id:
-        logger.warning("server-route pickup: order %s has no customer chat id", order_no)
-        # M-4: put the order back for retry and tell Min — without
-        # this it stayed claimed forever and vanished silently.
-        _unclaim_quietly(conn, order_id, order_no)
-        await _notify_owner_pickup_failure(context, order_id, order_no, "no_customer")
-        return
+    # v19.55 PHONE ORDERS (Min's decision): a browser order has no
+    # Telegram chat id — that is legitimate, not a failure. It gets the
+    # owner card (and the gated shop card) but no customer Telegram
+    # message; the customer follows it in the app (My Orders by phone)
+    # and accepts the fee there.
+    is_phone_order = not customer_chat_id
     # is_test is trusted only from the owner — the API enforces this
     # at intake, and the pickup enforces it again (defence in depth).
     if order.get("is_test") and not (
@@ -4542,13 +4553,14 @@ async def _deliver_api_order(context, conn, order_id, order, order_no):
     # v19.15 CRITICAL: no hours re-check here any more — only a live
     # manual /close cancels an already-accepted order at pickup.
     if is_shop_closed_manual():
-        lang = get_user_lang(customer_chat_id) or DEFAULT_LANG
-        try:
-            await context.bot.send_message(
-                chat_id=customer_chat_id, text=closed_text(lang=lang)
-            )
-        except Exception:
-            pass
+        if customer_chat_id:
+            lang = get_user_lang(customer_chat_id) or DEFAULT_LANG
+            try:
+                await context.bot.send_message(
+                    chat_id=customer_chat_id, text=closed_text(lang=lang)
+                )
+            except Exception:
+                pass
         try:
             conn.execute(
                 "UPDATE orders SET status='closed', order_status='cancelled' WHERE id=?",
@@ -4558,24 +4570,25 @@ async def _deliver_api_order(context, conn, order_id, order, order_no):
             conn.execute("UPDATE orders SET status='closed' WHERE id=?", (order_id,))
         conn.commit()
         return
-    lang = get_user_lang(customer_chat_id) or DEFAULT_LANG
-    try:
-        await context.bot.send_message(
-            chat_id=customer_chat_id,
-            text=build_order_confirmation(order, order_no, lang),
-        )
-    except Exception:
-        logger.exception("server-route pickup: customer confirmation failed for %s", order_no)
-        _unclaim_api_order(conn, order_id)
-        return
-    # v19.15 24/7: a night order (22:00–06:00) gets the auto night
-    # message AFTER the confirmation — best-effort, never blocks.
-    try:
-        await maybe_send_night_order_message(
-            context, customer_chat_id, order_no, lang
-        )
-    except Exception:
-        pass
+    if not is_phone_order:
+        lang = get_user_lang(customer_chat_id) or DEFAULT_LANG
+        try:
+            await context.bot.send_message(
+                chat_id=customer_chat_id,
+                text=build_order_confirmation(order, order_no, lang),
+            )
+        except Exception:
+            logger.exception("server-route pickup: customer confirmation failed for %s", order_no)
+            _unclaim_api_order(conn, order_id)
+            return
+        # v19.15 24/7: a night order (22:00–06:00) gets the auto night
+        # message AFTER the confirmation — best-effort, never blocks.
+        try:
+            await maybe_send_night_order_message(
+                context, customer_chat_id, order_no, lang
+            )
+        except Exception:
+            pass
     await send_order_cards(context, order, order_no)
 
 
@@ -4613,6 +4626,40 @@ STATUS_NOTIFY_TEXT = {
 }
 STATUS_NOTIFY_MAX_AGE_HOURS = 24
 
+RIDER_STATUS_TEXT = {
+    # Short Burmese status notes for the assigned rider (staff
+    # language, not customer language). The rider only hears about a
+    # dashboard change when the order has an active delivery.
+    "confirmed": "✅ အော်ဒါ {order_no} ကို ဆိုင်က လက်ခံလိုက်ပါပြီ။",
+    "preparing": "👨‍🍳 အော်ဒါ {order_no} ကို ပြင်ဆင်နေပါပြီ။",
+    "delivering": "🚚 အော်ဒါ {order_no} ကို ပို့ဆောင်နေပါပြီ။",
+    "delivered": "✅ အော်ဒါ {order_no} ပို့ဆောင်ပြီးပါပြီ။",
+    "cancelled": "❌ အော်ဒါ {order_no} ကို cancel လုပ်လိုက်ပါပြီ။",
+}
+
+
+async def _tell_rider_status(context, rider_chat_id, customer_chat_id, status, order_no):
+    """Best-effort rider status note. Skipped when the rider IS the
+    customer or Min (one person, one message). Never raises."""
+    if not rider_chat_id:
+        return
+    try:
+        if customer_chat_id and int(rider_chat_id) == int(customer_chat_id):
+            return
+        if OWNER_CHAT_ID and int(rider_chat_id) == int(OWNER_CHAT_ID):
+            return
+    except (TypeError, ValueError):
+        return
+    text = RIDER_STATUS_TEXT.get(status)
+    if not text:
+        return
+    try:
+        await context.bot.send_message(
+            chat_id=int(rider_chat_id), text=text.format(order_no=order_no)
+        )
+    except Exception:
+        pass
+
 
 def build_status_notification(order_no, status, lang):
     """Text for one dashboard-driven status change, or None when the
@@ -4643,24 +4690,33 @@ def _parse_event_time(value):
 def claim_status_events(conn, limit=10):
     """Atomically claim unnotified dashboard status events. Mirrors
     claim_api_orders: the claim runs inside the caller's transaction
-    (BEGIN IMMEDIATE serializes writers), and UPDATE ... WHERE
-    notified_at IS NULL with rowcount==1 wins. Only actor_type='admin'
-    rows are claimed — the bot's own card flows message the customer
-    directly and never write order_status_events. Returns the claimed
-    event ids, oldest first."""
+    (BEGIN IMMEDIATE serializes writers), and INSERT OR IGNORE with
+    rowcount==1 wins. Only actor_type='admin' rows are claimed — the
+    bot's own card flows message the customer directly and never write
+    order_status_events. Returns the claimed event ids, oldest first.
+
+    The marker lives in a SEPARATE table (status_notify_claims), NOT
+    in order_status_events.notified_at: that table is append-only (a
+    trigger blocks every UPDATE — migration 002), so the old
+    UPDATE-based claim always failed and no status message was ever
+    sent. The claims table is the only write here; the history table
+    is never touched."""
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS status_notify_claims ("
+        "event_id INTEGER PRIMARY KEY, notified_at TEXT NOT NULL)"
+    )
     now = datetime.now(YANGON_TZ).isoformat(timespec="seconds")
     rows = conn.execute(
         "SELECT id FROM order_status_events "
-        "WHERE actor_type='admin' AND notified_at IS NULL "
+        "WHERE actor_type='admin' AND id NOT IN (SELECT event_id FROM status_notify_claims) "
         "ORDER BY id LIMIT ?",
         (limit,),
     ).fetchall()
     claimed = []
     for (event_id,) in rows:
         cur = conn.execute(
-            "UPDATE order_status_events SET notified_at=? "
-            "WHERE id=? AND notified_at IS NULL",
-            (now, event_id),
+            "INSERT OR IGNORE INTO status_notify_claims (event_id, notified_at) VALUES (?, ?)",
+            (event_id, now),
         )
         if cur.rowcount == 1:
             claimed.append(event_id)
@@ -4670,9 +4726,11 @@ def claim_status_events(conn, limit=10):
 def _unclaim_status_event(conn, event_id):
     """Release one claimed event so the next tick retries it (send
     failed). The caller logs failures; this only runs after a send
-    raised, so a commit failure here must not mask that."""
+    raised, so a commit failure here must not mask that. The release
+    deletes the claim row — the history table is append-only and is
+    never written."""
     conn.execute(
-        "UPDATE order_status_events SET notified_at=NULL WHERE id=?",
+        "DELETE FROM status_notify_claims WHERE event_id=?",
         (event_id,),
     )
     conn.commit()
@@ -4730,10 +4788,54 @@ async def notify_status_changes_job(context):
                 )
                 continue
             order_no, customer_chat_id = order_row[0], order_row[1]
+            # Stale first: a status message a day late is useless, for
+            # the customer, the rider and Min alike.
+            event_time = _parse_event_time(created_at)
+            too_old = event_time is not None and (
+                datetime.now(timezone.utc) - event_time
+            ).total_seconds() > STATUS_NOTIFY_MAX_AGE_HOURS * 3600
+            if too_old:
+                logger.info(
+                    "status notify: event %s is older than %sh — skipping",
+                    event_id, STATUS_NOTIFY_MAX_AGE_HOURS,
+                )
+                continue
+            # v19.57 (Min 2026-11-21): a dashboard rejection told
+            # NOBODY — not the customer, not Min's Telegram. The
+            # customer is told below (Telegram) or sees it in the app
+            # (phone orders). Min gets a record here for every
+            # cancelled dashboard event, so he can follow up.
+            if status == "cancelled" and OWNER_CHAT_ID:
+                try:
+                    await context.bot.send_message(
+                        chat_id=int(OWNER_CHAT_ID),
+                        text=f"❌ အော်ဒါ {order_no} ကို dashboard ကနေ ပယ်ဖျက်လိုက်ပါပြီ။",
+                    )
+                except Exception:
+                    pass
+            # Rider lookup (v19.57, Min 2026-11-21): a dashboard
+            # status change never reached the rider — they only heard
+            # from the job card. The order's active delivery (if any)
+            # names the rider; they are told after the customer send
+            # succeeds (or at once for a phone order, which has no
+            # customer chat to message).
+            rider_chat_id = None
+            try:
+                drow = conn.execute(
+                    "SELECT rider_chat_id FROM deliveries WHERE order_id=? "
+                    "AND status NOT IN ('delivered','failed','cancelled') "
+                    "ORDER BY id DESC LIMIT 1",
+                    (order_id,),
+                ).fetchone()
+                if drow and drow[0]:
+                    rider_chat_id = int(drow[0])
+            except Exception:
+                rider_chat_id = None
             if not customer_chat_id:
                 logger.warning(
                     "status notify: order %s has no customer chat id — skipping", order_no
                 )
+                await _tell_rider_status(context, rider_chat_id, None, status, order_no)
                 continue
             text = build_status_notification(
                 order_no, status, get_user_lang(customer_chat_id) or DEFAULT_LANG
@@ -4744,23 +4846,18 @@ async def notify_status_changes_job(context):
                     event_id, status,
                 )
                 continue
-            event_time = _parse_event_time(created_at)
-            if event_time is not None and (
-                datetime.now(timezone.utc) - event_time
-            ).total_seconds() > STATUS_NOTIFY_MAX_AGE_HOURS * 3600:
-                logger.info(
-                    "status notify: event %s is older than %sh — skipping",
-                    event_id, STATUS_NOTIFY_MAX_AGE_HOURS,
-                )
-                continue
+            customer_sent = False
             try:
                 await context.bot.send_message(chat_id=int(customer_chat_id), text=text)
+                customer_sent = True
             except Exception:
                 logger.exception("status notify: send failed for %s", order_no)
                 try:
                     _unclaim_status_event(conn, event_id)
                 except Exception:
                     logger.exception("status notify: unclaim failed for event %s", event_id)
+            if customer_sent:
+                await _tell_rider_status(context, rider_chat_id, customer_chat_id, status, order_no)
     finally:
         conn.close()
 
@@ -4777,7 +4874,7 @@ async def notify_status_changes_job(context):
 # flag — bookings are not orders (same as the status-notify job).
 _SERVICE_BOOKING_COLUMNS = (
     "id", "booking_id", "service", "service_name", "customer_name",
-    "customer_phone", "fields_json", "created_at",
+    "customer_phone", "customer_chat_id", "fields_json", "created_at",
 )
 _SERVICE_BOOKING_LABELS = {
     "child": "ကလေး အမည်", "school": "ကျောင်း", "date": "နေ့",
@@ -4870,6 +4967,14 @@ async def pickup_service_bookings_job(context):
         logger.exception("service-booking pickup: cannot open database")
         return
     try:
+        # v19.53: the booking card carries a ↩️ reply button, which
+        # needs the customer chat id (stored by the API as
+        # customer_chat_id). Ensure the column here too so the bot
+        # never depends on the API having run its migration first.
+        _sb_cols = {r[1] for r in conn.execute("PRAGMA table_info(service_bookings)")}
+        if "customer_chat_id" not in _sb_cols:
+            conn.execute("ALTER TABLE service_bookings ADD COLUMN customer_chat_id INTEGER")
+            conn.commit()
         try:
             conn.execute("BEGIN IMMEDIATE")
             try:
@@ -4898,9 +5003,21 @@ async def pickup_service_bookings_job(context):
                         data.get("booking_id"),
                     )
                     continue
+                # The ↩️ button lives on the card itself so the owner
+                # can tap it and reply to the customer (same
+                # cust_reply flow as the order card). A card with no
+                # customer chat id carries no button rather than a
+                # broken callback.
+                _bk_reply = customer_reply_markup(data.get("customer_chat_id"))
+                if _bk_reply is None:
+                    logger.warning(
+                        "service-booking card for %s has no customer chat id — no reply button",
+                        data.get("booking_id"),
+                    )
                 await context.bot.send_message(
                     chat_id=int(OWNER_CHAT_ID),
                     text=_service_booking_card(data),
+                    reply_markup=_bk_reply,
                 )
             except Exception:
                 logger.exception(
@@ -5036,6 +5153,37 @@ async def request_shop_video(update, context, data, msg):
                 pass
 
 
+def _audit_shop_decision(shop_name, order_no, decision):
+    """Write the shop's ✅/❌ into audit_log (Dashboard → မှတ်တမ်း).
+
+    The bot-card decision used to reach Min only as a Telegram message;
+    now it is also a permanent, undeletable log row, next to the
+    dashboard's own entries (same columns as the API's _audit).
+    Best-effort only — never raises into the shop flow.
+    """
+    action = "shop_order.confirm" if decision == "shop_ok" else "shop_order.reject"
+    try:
+        conn = db_connect()
+        try:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS audit_log ("
+                "  id INTEGER PRIMARY KEY AUTOINCREMENT, actor_type TEXT NOT NULL, actor_id TEXT, action TEXT NOT NULL,"
+                "  entity_type TEXT NOT NULL, entity_id TEXT, details TEXT, created_at TEXT NOT NULL)"
+            )
+            conn.execute(
+                "INSERT INTO audit_log(actor_type,actor_id,action,entity_type,entity_id,details,created_at)"
+                " VALUES('shop',?,?,?,?,?,?)",
+                (shop_name, action, "order", order_no,
+                 json.dumps({"shop": shop_name}, ensure_ascii=False),
+                 datetime.now(timezone.utc).isoformat(timespec="seconds")),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception:
+        pass
+
+
 async def shop_order_decision(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Shop taps ✅ / ❌ on its order card; Min + customer are told.
 
@@ -5074,6 +5222,11 @@ async def shop_order_decision(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not set_order_status(order_no, status):
         await q.answer("ဒီအော်ဒါကို ဆုံးဖြတ်ပြီးသားပါရှင့်။", show_alert=True)
         return
+    # Audit log (2026-11-21, Min's decision): the shop's ✅/❌ shows in
+    # Dashboard → မှတ်တမ်း too, so Min sees it in one place.
+    # Only reached for a real first decision — a duplicate tap returns
+    # above, so no duplicate audit row.
+    _audit_shop_decision(shop_name, order_no, decision)
     if decision == "shop_ok":
         owner_text = (
             f"✅ ဆိုင် ({shop_name}) က အော်ဒါ {order_no} ကို "
@@ -5115,6 +5268,448 @@ async def shop_order_decision(update: Update, context: ContextTypes.DEFAULT_TYPE
         except Exception:
             pass
     await q.message.reply_text(shop_text)
+
+
+# --- Fee-confirm (2026-11-20, v19.54, Min's decision) -------------------
+# Min types the EXACT delivery fee per order in the Dashboard (30 baht
+# is only the minimum, never the fee itself). The fee job asks the
+# customer to accept it; only after the customer accepts does the order
+# go to the shop — and only after the shop confirms does the rider get
+# the job card (maybe_auto_assign_delivery, already wired). A declined
+# fee cancels the order and the shop never hears about it.
+
+
+def _ensure_fee_columns(conn):
+    """Add the fee-confirm columns when missing (the API migrates them
+    too; the bot must not assume they exist — both processes share the
+    same orders.db). Additive only."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(orders)")}
+    for name, ddl in (
+        ("fee_status", "ALTER TABLE orders ADD COLUMN fee_status TEXT"),
+        ("fee_msg_sent", "ALTER TABLE orders ADD COLUMN fee_msg_sent INTEGER NOT NULL DEFAULT 0"),
+        ("fee_note", "ALTER TABLE orders ADD COLUMN fee_note TEXT"),
+        # Shop-card flag (2026-11-20, v19.55): the phone-fee job
+        # marks it when the shop card is sent for an accepted phone
+        # order (or when no separate shop card is needed).
+        ("shop_card_sent", "ALTER TABLE orders ADD COLUMN shop_card_sent INTEGER NOT NULL DEFAULT 0"),
+    ):
+        if name not in cols:
+            conn.execute(ddl)
+
+
+def _fee_message_text(order_no, fee, fee_note):
+    """The fee-confirm message to the customer: warm, gentle, with
+    compassion (Min's standing rule). The middle reason line is only
+    there when Min typed a reason — and never when the fee is just the
+    30-baht minimum."""
+    lines = [
+        f"မင်္ဂလာပါရှင့် 🙏 အော်ဒါ {order_no} အတွက် ပို့ဆောင်ခ {fee:g} ဘတ် ဖြစ်ပါတယ်ရှင့်။",
+    ]
+    if fee_note:
+        lines.append(fee_note)
+    lines.append("လက်ခံပါသလား ရှင့် — အောက်က ခလုတ်လေးနဲ့ ရွေးပေးပါနော်၊ ကျေးဇူးတင်ပါတယ်ရှင့် 💜")
+    return "\n".join(lines)
+
+
+async def fee_confirm_job(context):
+    """JobQueue fee-confirm (every 15s): send the fee message to the
+    customer for each real order whose fee Min set in the Dashboard
+    (fee_status='pending', fee_msg_sent=0). One bad order never kills
+    the batch, and the job itself never raises into the scheduler.
+    A failed send releases the claim so the next tick retries it."""
+    try:
+        conn = db_connect()
+    except Exception:
+        logger.exception("fee confirm: cannot open database")
+        return
+    try:
+        try:
+            _ensure_fee_columns(conn)
+            conn.commit()
+        except Exception:
+            logger.exception("fee confirm: column ensure failed")
+            conn.rollback()
+            return
+        try:
+            rows = conn.execute(
+                "SELECT id, order_no, customer_chat_id, delivery_fee, fee_note FROM orders "
+                "WHERE fee_status='pending' AND COALESCE(fee_msg_sent,0)=0 "
+                "AND COALESCE(is_test,0)=0 AND COALESCE(order_status,'pending')='pending' "
+                "AND customer_chat_id IS NOT NULL ORDER BY id"
+            ).fetchall()
+        except Exception:
+            logger.exception("fee confirm: candidate lookup failed")
+            return
+        for order_id, order_no, customer_chat_id, fee, fee_note in rows:
+            try:
+                cur = conn.execute(
+                    "UPDATE orders SET fee_msg_sent=2 WHERE id=? AND COALESCE(fee_msg_sent,0)=0",
+                    (order_id,),
+                )
+                conn.commit()
+                if cur.rowcount != 1:
+                    continue  # claimed by another tick/process
+            except Exception:
+                logger.exception("fee confirm: claim failed for %s", order_no)
+                continue
+            try:
+                fee_text = _fee_message_text(
+                    order_no, fee if fee is not None else 30, fee_note
+                )
+                kb = InlineKeyboardMarkup([[
+                    InlineKeyboardButton("✅ လက်ခံမယ်", callback_data=f"fee_ok:{order_no}"),
+                    InlineKeyboardButton("❌ မလက်ခံဘူး", callback_data=f"fee_no:{order_no}"),
+                ]])
+                await context.bot.send_message(
+                    chat_id=int(customer_chat_id), text=fee_text, reply_markup=kb
+                )
+                conn.execute(
+                    "UPDATE orders SET fee_msg_sent=1 WHERE id=?", (order_id,)
+                )
+                conn.commit()
+            except Exception:
+                logger.exception("fee confirm: send failed for %s", order_no)
+                try:
+                    conn.execute(
+                        "UPDATE orders SET fee_msg_sent=0 WHERE id=?", (order_id,)
+                    )
+                    conn.commit()
+                except Exception:
+                    pass
+    finally:
+        conn.close()
+
+
+async def fee_decision(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """The customer taps ✅ / ❌ on the fee-confirm message.
+
+    Only the customer who placed the order may decide, and only once
+    — a second tap is told the fee is already decided. On accept: the
+    order goes to the shop (notify_shop_of_order); the shop's ✅ then
+    auto-assigns the rider as today. On decline: the order is
+    cancelled and the shop never hears about it.
+    """
+    q = update.callback_query
+    await safe_answer(q)
+    data = str(q.data or "")
+    decision, _, order_no = data.partition(":")
+    if decision not in ("fee_ok", "fee_no") or not order_no:
+        return
+    row = get_order_by_no(order_no)
+    if not row:
+        await q.answer("တောင်းပန်ပါတယ်ရှင့်။ ဒီအော်ဒါကို မတွေ့တော့ပါဘူး။", show_alert=True)
+        return
+    # get_order_by_no column order: id, order_no, created_at,
+    # customer_name, customer_chat_id, ..., shop, idempotency_key, status.
+    order_id = row[0]
+    customer_chat_id = row[4]
+    shop_name = row[13]
+    if not customer_chat_id or update.effective_chat.id != int(customer_chat_id):
+        await q.answer("တောင်းပန်ပါတယ်ရှင့်။ ဒါကို ဆုံးဖြတ်ဖို့ ခွင့်ပြုချက် မရှိပါဘူး။", show_alert=True)
+        return
+    try:
+        conn = db_connect()
+    except Exception:
+        await q.answer("တောင်းပန်ပါတယ်ရှင့်။ ထပ်ကြိုးစားပေးပါနော်။", show_alert=True)
+        return
+    order = None
+    try:
+        _ensure_fee_columns(conn)
+        conn.commit()
+        new_status = "accepted" if decision == "fee_ok" else "declined"
+        cur = conn.execute(
+            "UPDATE orders SET fee_status=? WHERE id=? AND fee_status='pending'",
+            (new_status, order_id),
+        )
+        conn.commit()
+        if cur.rowcount != 1:
+            await q.answer("ဒီအော်ဒါကို ဆုံးဖြတ်ပြီးသားပါရှင့်။", show_alert=True)
+            return
+        fee_row = conn.execute(
+            "SELECT delivery_fee FROM orders WHERE id=?", (order_id,)
+        ).fetchone()
+        fee = fee_row[0] if fee_row and fee_row[0] is not None else 30
+        if decision == "fee_no":
+            # Cancelled: the shop never hears. No order_status_events
+            # row — the customer is told here, not by the notify job.
+            conn.execute(
+                "UPDATE orders SET order_status='cancelled' WHERE id=?", (order_id,)
+            )
+            conn.commit()
+        if decision == "fee_ok":
+            try:
+                order = load_api_order(conn, order_id)
+            except Exception:
+                logger.exception("fee decision: cannot load order %s", order_no)
+                order = None
+    finally:
+        conn.close()
+    # v19.56: tell Min the truth — send the shop card FIRST, then say
+    # whether it reached the shop. (Before, Min got "sent to the shop"
+    # and then a contradictory "shop could not be reached" warning for
+    # the same order.) The customer message no longer claims the shop
+    # got it — it says we are contacting the shop.
+    shop_notified = None
+    if decision == "fee_ok" and order is not None:
+        try:
+            shop_notified = await notify_shop_of_order(context, order, order_no)
+        except Exception:
+            logger.exception("fee decision: shop card failed for %s", order_no)
+            shop_notified = None
+    # v19.57: mark the shop card done so the fee-accept job (which now
+    # also covers Telegram orders accepted via the dashboard) does not
+    # send it a second time. No card needed OR sent OK -> done. A real
+    # send failure (an owner exists but the send failed) stays 0 so
+    # the job retries it.
+    if decision == "fee_ok" and order is not None:
+        try:
+            if shop_notified or not _shop_card_needed(order):
+                _c2 = db_connect()
+                try:
+                    _c2.execute(
+                        "UPDATE orders SET shop_card_sent=1 WHERE order_no=?",
+                        (order_no,),
+                    )
+                    _c2.commit()
+                finally:
+                    _c2.close()
+        except Exception:
+            logger.exception("fee decision: shop_card_sent mark failed for %s", order_no)
+    if decision == "fee_ok":
+        if shop_notified:
+            owner_text = (
+                f"✅ Customer က အော်ဒါ {order_no} ရဲ့ ပို့ခ {fee:g} ဘတ် "
+                "လက်ခံလိုက်ပါပြီ — ဆိုင်ကို အော်ဒါ ပို့ပေးလိုက်ပါပြီ။"
+            )
+        else:
+            owner_text = (
+                f"✅ Customer က အော်ဒါ {order_no} ရဲ့ ပို့ခ {fee:g} ဘတ် "
+                f"လက်ခံလိုက်ပါပြီ — ဒါပေမယ့် ဆိုင်ရှင် ({shop_name or '?'}) ကို "
+                "ဆက်သွယ်မရပါ။ ဆိုင်ကို ဖုန်းဆက်ပြီး အကြောင်းကြားပေးပါ။"
+            )
+        customer_text = (
+            f"ကျေးဇူးတင်ပါတယ်ရှင့် 🙏 ပို့ခ {fee:g} ဘတ် လက်ခံပေးလို့ — "
+            "ဆိုင်ကို ဆက်သွယ်ပေးနေပါပြီ။ ပြင်ဆင်ပြီးရင် Rider လွှတ်ပေးပါမယ်။"
+        )
+    else:
+        owner_text = (
+            f"❌ Customer က အော်ဒါ {order_no} ရဲ့ ပို့ခ {fee:g} ဘတ် "
+            "မလက်ခံလို့ အော်ဒါ ပယ်ဖျက်လိုက်ပါပြီ — ဆိုင်ကို မပို့ရသေးပါ။"
+        )
+        customer_text = (
+            "ရပါတယ်ရှင့်၊ နားလည်ပါတယ်ရှင့် 🙏 "
+            f"အော်ဒါ {order_no} ကို ပယ်ဖျက်လိုက်ပါပြီ။ "
+            "နောက်တစ်ခါ မှာယူရင် ကူညီပေးပါ့မယ်ရှင့်။"
+        )
+    if OWNER_CHAT_ID:
+        try:
+            await context.bot.send_message(chat_id=int(OWNER_CHAT_ID), text=owner_text)
+        except Exception:
+            pass
+    if customer_chat_id:
+        try:
+            await context.bot.send_message(
+                chat_id=int(customer_chat_id), text=customer_text
+            )
+        except Exception:
+            pass
+    try:
+        await q.edit_message_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+
+# --- Fee-accept job (2026-11-20, v19.55; generalised 2026-11-21, v19.57) ---
+# A customer has no Telegram chat id on a phone order, so the bot
+# cannot message them — they accept the fee in the app (POST
+# /api/public/orders/.../fee-decision). The fee-accept job sends the
+# order to the shop once a fee is accepted, and tells Min. v19.57: it
+# now also covers a Telegram order whose fee Min accepted in the
+# Dashboard (the customer never tapped ✅/❌) — the shop card goes out
+# the same way, and the Telegram customer is told the order is
+# proceeding. The error-alert job watches the API's error_log and
+# tells Min about system errors (rate-limited to one summary message
+# per tick at most).
+
+
+async def fee_accept_job(context):
+    """JobQueue fee-accept (every 15s): for each real order whose fee
+    was accepted (fee_status='accepted', shop_card_sent=0), send the
+    order to the shop and tell Min. Covers BOTH paths: a phone
+    customer accepting in the app (v19.55) and a Telegram customer
+    whose fee Min accepted in the Dashboard (v19.57). A shop with no
+    owner can never receive a card — it is marked done and Min is
+    told once, honestly (v19.56/v19.57: never "sent to the shop" when
+    no shop could be reached). Claims with shop_card_sent=2 first
+    (no double-send). One bad order never kills the batch, and the
+    job itself never raises into the scheduler."""
+    try:
+        conn = db_connect()
+    except Exception:
+        logger.exception("fee accept: cannot open database")
+        return
+    try:
+        try:
+            _ensure_fee_columns(conn)
+            conn.commit()
+        except Exception:
+            logger.exception("fee accept: column ensure failed")
+            conn.rollback()
+            return
+        try:
+            rows = conn.execute(
+                "SELECT id, order_no FROM orders "
+                "WHERE fee_status='accepted' AND COALESCE(shop_card_sent,0)=0 "
+                "AND COALESCE(is_test,0)=0 ORDER BY id"
+            ).fetchall()
+        except Exception:
+            logger.exception("fee accept: candidate lookup failed")
+            return
+        for order_id, order_no in rows:
+            try:
+                cur = conn.execute(
+                    "UPDATE orders SET shop_card_sent=2 WHERE id=? AND COALESCE(shop_card_sent,0)=0",
+                    (order_id,),
+                )
+                conn.commit()
+                if cur.rowcount != 1:
+                    continue  # claimed by another tick/process
+            except Exception:
+                logger.exception("fee accept: claim failed for %s", order_no)
+                continue
+            try:
+                order = load_api_order(conn, order_id)
+            except Exception:
+                logger.exception("fee accept: cannot load order %s", order_no)
+                try:
+                    conn.execute("UPDATE orders SET shop_card_sent=0 WHERE id=?", (order_id,))
+                    conn.commit()
+                except Exception:
+                    pass
+                continue
+            if order is None:
+                continue  # row gone; the claim stays 2 (harmless)
+            fee_row = conn.execute(
+                "SELECT delivery_fee FROM orders WHERE id=?", (order_id,)
+            ).fetchone()
+            fee = fee_row[0] if fee_row and fee_row[0] is not None else 30
+            _who = "Phone customer" if not order.get("customer_chat_id") else "Customer"
+            notified = None
+            if _shop_card_needed(order):
+                try:
+                    notified = await notify_shop_of_order(context, order, order_no)
+                except Exception:
+                    logger.exception("fee accept: shop card failed for %s", order_no)
+                    try:
+                        conn.execute("UPDATE orders SET shop_card_sent=0 WHERE id=?", (order_id,))
+                        conn.commit()
+                    except Exception:
+                        pass
+                    continue
+                if notified is None:
+                    # A real send failure (an owner exists but the
+                    # send failed) — release the claim for the next
+                    # tick. The ownerless case never reaches here:
+                    # _shop_card_needed is False for it, so no notify
+                    # is attempted at all (handled below).
+                    try:
+                        conn.execute("UPDATE orders SET shop_card_sent=0 WHERE id=?", (order_id,))
+                        conn.commit()
+                    except Exception:
+                        pass
+                    continue
+            try:
+                conn.execute("UPDATE orders SET shop_card_sent=1 WHERE id=?", (order_id,))
+                conn.commit()
+            except Exception:
+                logger.exception("fee accept: flag failed for %s", order_no)
+                continue
+            # One honest message to Min: "sent to the shop" only when a
+            # shop card really went out. When no shop could be reached
+            # (ownerless shop), Min is told to call the shop — the old
+            # text over-claimed here. A Telegram customer is told the
+            # order is proceeding.
+            if OWNER_CHAT_ID:
+                try:
+                    if notified:
+                        _txt = (
+                            f"✅ {_who} က အော်ဒါ {order_no} ရဲ့ ပို့ခ {fee:g} ဘတ် "
+                            "လက်ခံလိုက်ပါပြီ — ဆိုင်ကို အော်ဒါ ပို့ပေးလိုက်ပါပြီ။"
+                        )
+                    else:
+                        _txt = (
+                            f"✅ {_who} က အော်ဒါ {order_no} ရဲ့ ပို့ခ {fee:g} ဘတ် "
+                            f"လက်ခံလိုက်ပါပြီ — ဒါပေမယ့် ဆိုင်ရှင် ({order.get('shop') or '?'}) ကို "
+                            "ဆက်သွယ်မရပါ။ ဆိုင်ကို ဖုန်းဆက်ပြီး အကြောင်းကြားပေးပါ။"
+                        )
+                    await context.bot.send_message(
+                        chat_id=int(OWNER_CHAT_ID), text=_txt
+                    )
+                except Exception:
+                    pass
+            _cust = order.get("customer_chat_id")
+            if _cust:
+                try:
+                    await context.bot.send_message(
+                        chat_id=int(_cust),
+                        text=(
+                            f"ကျေးဇူးတင်ပါတယ်ရှင့် 🙏 ပို့ခ {fee:g} ဘတ် လက်ခံပေးလို့ — "
+                            "ဆိုင်ကို ဆက်သွယ်ပေးနေပါပြီ။ ပြင်ဆင်ပြီးရင် Rider လွှတ်ပေးပါမယ်။"
+                        ),
+                    )
+                except Exception:
+                    pass
+    finally:
+        conn.close()
+
+
+async def error_alert_job(context):
+    """JobQueue error alerts (every 60s): tell Min about new SYSTEM
+    errors the API logged (api_500 database errors and intake rate
+    limits). User mistakes (intake 400s) go to the dashboard Errors
+    view only — they never page Min. At most one summary message per
+    tick; alerted rows are marked so they are never re-sent."""
+    try:
+        conn = db_connect()
+    except Exception:
+        logger.exception("error alert: cannot open database")
+        return
+    try:
+        try:
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(error_log)")}
+        except Exception:
+            return  # no error_log table yet — nothing to alert on
+        if "alerted" not in cols:
+            return
+        try:
+            rows = conn.execute(
+                "SELECT id,type,message,order_no,created_at FROM error_log "
+                "WHERE alerted=0 AND type IN ('api_500','order_intake_429') "
+                "ORDER BY id LIMIT 5"
+            ).fetchall()
+        except Exception:
+            logger.exception("error alert: lookup failed")
+            return
+        if not rows or not OWNER_CHAT_ID:
+            return
+        lines = ["⚠️ Safe Deli error — စနစ် error တက်နေပါတယ်ရှင့်:"]
+        for _id, typ, msg, order_no, created_at in rows:
+            lines.append(f"• [{typ}] {msg}" + (f" ({order_no})" if order_no else ""))
+        try:
+            await context.bot.send_message(chat_id=int(OWNER_CHAT_ID), text="\n".join(lines))
+        except Exception:
+            logger.exception("error alert: owner send failed")
+            return
+        try:
+            ids = [r[0] for r in rows]
+            conn.execute(
+                f"UPDATE error_log SET alerted=1 WHERE id IN ({','.join('?' * len(ids))})", ids
+            )
+            conn.commit()
+        except Exception:
+            logger.exception("error alert: mark failed")
+    finally:
+        conn.close()
 
 
 async def night_order_decision(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -5606,7 +6201,68 @@ async def _send_welcome(message, context, lang):
     )
 
 
+async def _maybe_link_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Deep-link handler (v19.58, Min 2026-11-21): a phone/browser order
+    carries no Telegram ID, so the bot cannot send its fee card. The app's
+    "Confirm on Telegram" button opens t.me/SafeDeli_bot?start=ord_<no>;
+    this links that Telegram chat to the order (customer_chat_id) so the
+    fee-confirm job sends the card here. Never overwrites a chat id that
+    belongs to a DIFFERENT Telegram user. Sends one confirmation message
+    via context.bot (works for both the /start message flow and the
+    language-picker callback flow)."""
+    try:
+        order_no = context.user_data.pop("link_order_no", None)
+    except Exception:
+        order_no = None
+    if not order_no:
+        return
+    chat_id = update.effective_chat.id
+    try:
+        conn = db_connect()
+    except Exception:
+        logger.exception("order link: cannot open database")
+        return
+    try:
+        row = conn.execute(
+            "SELECT id, customer_chat_id FROM orders WHERE order_no=?",
+            (order_no,),
+        ).fetchone()
+        if row is None:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"အော်ဒါ {order_no} ကို မတွေ့ပါဘူးရှင့်။ အော်ဒါနံပါတ် မှန်ကန်မှု စစ်ပေးပါရှင့်။",
+            )
+            return
+        order_id, existing_chat = row
+        if existing_chat is not None and str(existing_chat) != str(chat_id):
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"အော်ဒါ {order_no} ကို တခြား Telegram အကောင့်နဲ့ ချိတ်ပြီးသား ဖြစ်ပါတယ်ရှင့်။",
+            )
+            return
+        if existing_chat is None:
+            conn.execute(
+                "UPDATE orders SET customer_chat_id=? WHERE id=?",
+                (chat_id, order_id),
+            )
+            conn.commit()
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"အော်ဒါ {order_no} ကို Telegram နဲ့ ချိတ်ပြီးပါပြီရှင့်။ ပို့ခ အတည်ပြုစာရွက် (✅/❌ ခလုတ်) ခဏနေ ဒီမှာ ရောက်လာပါမယ်ရှင့်။",
+        )
+    except Exception:
+        logger.exception("order link: failed for %s", order_no)
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # v19.58 deep link (Min 2026-11-21): /start ord_<order_no> from the
+    # app's "Confirm on Telegram" button links this Telegram chat to a
+    # phone/browser order so the bot can send the fee card here. The
+    # payload is carried through the language picker (new users) in
+    # user_data and linked after the welcome.
+    args = context.args or []
+    if args and isinstance(args[0], str) and args[0].startswith("ord_"):
+        context.user_data["link_order_no"] = args[0][4:]
     # First /start: ask the language first (Part 1, option A).
     # Returning users go straight to the welcome in their language.
     lang = get_user_lang(update.effective_chat.id)
@@ -5616,6 +6272,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
     await _send_welcome(update.effective_message, context, lang)
+    await _maybe_link_order(update, context)
     return ConversationHandler.END
 
 
@@ -5632,6 +6289,8 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     set_user_lang(update.effective_chat.id, lang)
     await _send_welcome(q.message, context, lang)
+    # v19.58: a deep-link payload carried through the picker links now.
+    await _maybe_link_order(update, context)
 
 
 async def lang_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -6153,8 +6812,23 @@ async def begin_customer_reply(update: Update, context: ContextTypes.DEFAULT_TYP
         return
     context.user_data["reply_to_customer_chat_id"] = customer_chat_id
     await query.answer()
+    # v19.56: show the customer's name/phone, not a raw chat id.
+    _who = str(customer_chat_id)
+    try:
+        _conn = db_connect()
+        try:
+            _r = _conn.execute(
+                "SELECT customer_name, sender_phone FROM orders WHERE customer_chat_id=? ORDER BY id DESC LIMIT 1",
+                (customer_chat_id,),
+            ).fetchone()
+        finally:
+            _conn.close()
+        if _r and (_r[0] or _r[1]):
+            _who = " ".join(p for p in (_r[0], _r[1]) if p)
+    except Exception:
+        pass
     await query.message.reply_text(
-        f"✍️ Customer ({customer_chat_id}) ကို ပြန်စာရေးပို့ပါ။\n"
+        f"✍️ Customer ({_who}) ကို ပြန်စာရေးပို့ပါ။\n"
         "မပို့တော့လိုပါက /cancelreply ကိုနှိပ်ပါ။"
     )
 
@@ -7214,6 +7888,7 @@ def build_app():
     app.add_handler(CallbackQueryHandler(begin_customer_reply, pattern=r"^cust_reply:-?\d+$"))
     app.add_handler(CallbackQueryHandler(shop_order_decision, pattern=r"^shop_(ok|no):SD-\d{8}-\d{3}$"))
     app.add_handler(CallbackQueryHandler(night_order_decision, pattern=r"^night_(ok|cancel):SD-\d{8}-\d{3}$"))
+    app.add_handler(CallbackQueryHandler(fee_decision, pattern=r"^fee_(ok|no):SD-\d{8}-\d{3}$"))
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE,
         send_pending_customer_reply,
@@ -7276,6 +7951,9 @@ def build_app():
     if app.job_queue is not None:
         app.job_queue.run_repeating(notify_status_changes_job, interval=15, first=15)
         app.job_queue.run_repeating(pickup_service_bookings_job, interval=15, first=17)
+        app.job_queue.run_repeating(fee_confirm_job, interval=15, first=20)
+        app.job_queue.run_repeating(fee_accept_job, interval=15, first=22)
+        app.job_queue.run_repeating(error_alert_job, interval=60, first=30)
     else:
         logger.warning(
             "status notify NOT running: python-telegram-bot "
