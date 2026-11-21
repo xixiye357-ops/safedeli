@@ -3060,7 +3060,8 @@ var livePromos = [];     /* promo_slots from settings, mapped to PROMOS shape */
 var liveFeatured = [];   /* featured_shop_ids from settings (raw API ids) */
 var liveDishes = null;
 var dishesLoading = false;   /* v19.64: home-dishes fetch in progress */
-var dishesLoadFailed = false; /* v19.64: all fetch tries failed, no dishes */   /* normalized home dishes from /api/public/home-dishes; null = use POPULAR */
+var dishesLoadFailed = false; /* v19.64: all fetch tries failed, no dishes */
+var dishesRetryTimer = null; /* v19.66: background retry timer until dishes load */   /* normalized home dishes from /api/public/home-dishes; null = use POPULAR */
 var liveSettings = { globalHours: null, feeMin: null, contact: null };
 var catalogueState = "pending"; /* pending | live | fallback */
 function shopTypeByKey(k) {
@@ -3257,15 +3258,25 @@ function loadHomeDishes(attempt) {
   /* v19.64 (Min 2026-11-21): the menu stayed BLANK on his slowest line —
      20s was too short for the 16KB dish list at ~0.4KB/s, and the silent
      empty grid gave him nothing to retry. Now 45s, up to 4 tries, with a
-     visible loading state and a retry button (see renderDishGrid). */
-  if (attempt === 1) { dishesLoading = true; dishesLoadFailed = false; }
+     visible loading state and a retry button (see renderDishGrid).
+     v19.66 (Min 2026-11-21): the list NEVER arrived even after minutes
+     of waiting and reloading — on a bursty line every attempt can stall,
+     and each reload restarts the clock. So after the first 4 tries the
+     fetch keeps retrying in the background every 25s until one succeeds;
+     the loading state shows at once instead of the stale empty grid. */
+  if (attempt === 1) {
+    dishesLoading = true; dishesLoadFailed = false;
+    if (dishesRetryTimer) { clearTimeout(dishesRetryTimer); dishesRetryTimer = null; }
+    if (lastView === "home") renderDishGrid();
+  }
   fetchJson(API_BASE + "/api/public/home-dishes?t=" + Date.now(), 45000).then(function (data) {
     var list = (data && Array.isArray(data.dishes)) ? data.dishes : [];
     if (!list.length) {
       if (attempt < 4) { setTimeout(function () { loadHomeDishes(attempt + 1); }, 2000); }
-      else { liveDishes = null; dishesLoading = false; dishesLoadFailed = true; if (lastView === "home") renderHome(); else if (lastView === "cats") renderCatGrid(); }
+      else { dishesFetchFailed(); }
       return;
     }
+    if (dishesRetryTimer) { clearTimeout(dishesRetryTimer); dishesRetryTimer = null; }
     liveDishes = list.map(normalizeHomeDish);
     saveCachedDishes(list);
     dishOrder = null; /* the owner's server order wins over any shuffle */
@@ -3274,8 +3285,17 @@ function loadHomeDishes(attempt) {
     else if (lastView === "cats") renderCatGrid();
   }, function () {
     if (attempt < 4) { setTimeout(function () { loadHomeDishes(attempt + 1); }, 2000); }
-    else { liveDishes = null; dishesLoading = false; dishesLoadFailed = true; if (lastView === "home") renderHome(); else if (lastView === "cats") renderCatGrid(); }
+    else { dishesFetchFailed(); }
   });
+  function dishesFetchFailed() {
+    liveDishes = null; dishesLoading = false; dishesLoadFailed = true;
+    if (lastView === "home") renderHome(); else if (lastView === "cats") renderCatGrid();
+    /* Keep trying in the background — a bursty line will have a good
+       window eventually. Stops the moment a fetch succeeds. */
+    if (!dishesRetryTimer) {
+      dishesRetryTimer = setTimeout(function () { dishesRetryTimer = null; loadHomeDishes(1); }, 25000);
+    }
+  }
 }
 function fetchCatalogue() {
   syncPendingBookings(); /* v19.47: retry bookings the server never got */
@@ -3723,14 +3743,21 @@ function shopPhoto(s) {
    badge at the picture corner covers both. */
 function shopIsNew(s) { return !!(s && (s.is_new || s.menu_is_new)); }
 function shopsAll() { return liveShops.concat(SHOPS); }
+/* v19.67 (Min 2026-11-21): the REAL menu baked into the app so it
+   shows INSTANTLY on every open — no waiting, no empty grid, even
+   with no connection. Baked 2026-11-21 from the live API (59 dishes,
+   all priced). The live fetch still refreshes these in the
+   background; the baked copy is only the fallback when it fails. */
+var BAKED_DISHES = [{"id":"home:21","name":"ဝက်သားကြော် ထမင်း","photo":"","price":85.0,"currency":"THB","unit":"၁ ပွဲ","cat":"rice","glyph":"bowl","sample":false},{"id":"home:22","name":"ခေါက်ဆွဲသုပ် (မီယမ် မီ ကလပ်)","photo":"","price":79.0,"currency":"THB","unit":"၁ ပွဲ","cat":"noodles","glyph":"noodle","sample":false},{"id":"home:23","name":"မာမာခေါက်ဆွဲ (ကြက်ဥ + ပုစွန်)","photo":"","price":55.0,"currency":"THB","unit":"၁ ပွဲ","cat":"noodles","glyph":"noodle","sample":false},{"id":"home:24","name":"ကြက်သားမျှင် ခေါက်ဆွဲ","photo":"","price":60.0,"currency":"THB","unit":"၁ ပွဲ","cat":"noodles","glyph":"noodle","sample":false},{"id":"home:25","name":"ကြက်ဥမွှေ ထမင်း (ဘေကွန်)","photo":"","price":59.0,"currency":"THB","unit":"၁ ပွဲ","cat":"rice","glyph":"bowl","sample":false},{"id":"home:26","name":"ပုစွန်တု ကြော်ဂျုံလုံး / အာလူးကြော် (လှုပ်ပြီး)","photo":"","price":55.0,"currency":"THB","unit":"၁ ပွဲ","cat":"snacks","glyph":"fried","sample":false},{"id":"home:27","name":"စတော်ဘယ်ရီ နို့စိမ်း","photo":"","price":50.0,"currency":"THB","unit":"၁ ခွက်","cat":"drinks","glyph":"juice","sample":false},{"id":"home:28","name":"မတ်ချား စစ်စစ်","photo":"","price":50.0,"currency":"THB","unit":"၁ ခွက်","cat":"drinks","glyph":"coffee","sample":false},{"id":"home:29","name":"စတော်ဘယ်ရီ မတ်ချား","photo":"","price":60.0,"currency":"THB","unit":"၁ ခွက်","cat":"drinks","glyph":"coffee","sample":false},{"id":"home:30","name":"ပေါင်မုန့် အပေါ်လောင်","photo":"","price":49.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:31","name":"ပေါင်မုန့် (နို့ + ထောပတ် + သကြား)","photo":"","price":20.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:32","name":"ရှာဘူ + ထောပတ်ကင် ဘူဖေး (၁ ယောက်)","photo":"","price":229.0,"currency":"THB","unit":"၁ ယောက်","cat":"bbq","glyph":"grill","sample":false},{"id":"home:33","name":"ရှာဘူ ဘူဖေး — အမဲ/ဝက်/ပင်လယ်စာ (၁ ယောက်)","photo":"","price":329.0,"currency":"THB","unit":"၁ ယောက်","cat":"bbq","glyph":"grill","sample":false},{"id":"home:34","name":"သြစတြေးလျ အမဲသား ရှာဘူ ဟော့ပေါ့ ဘူဖေး","photo":"","price":229.0,"currency":"THB","unit":"၁ ယောက်","cat":"bbq","glyph":"grill","sample":false},{"id":"home:35","name":"အုန်းသီး ကိတ်မုန့်","photo":"https://safedeli.net/media/product/388dcd32c6495ae9614b09cc3e5ed04d.jpg","price":60.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:36","name":"ငှက်ပျောသီး ကိတ်မုန့်","photo":"https://safedeli.net/media/product/388dcd32c6495ae9614b09cc3e5ed04d.jpg","price":40.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:37","name":"ချိစ်ကိတ် အလောင်","photo":"https://safedeli.net/media/product/388dcd32c6495ae9614b09cc3e5ed04d.jpg","price":70.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:38","name":"ကိတ်အချပ် — အုန်းသီး","photo":"https://safedeli.net/media/product/388dcd32c6495ae9614b09cc3e5ed04d.jpg","price":20.0,"currency":"THB","unit":"၁ ချပ်","cat":"snacks","glyph":"cake","sample":false},{"id":"home:39","name":"ကိတ်အချပ် — လိမ္မော်","photo":"https://safedeli.net/media/product/388dcd32c6495ae9614b09cc3e5ed04d.jpg","price":20.0,"currency":"THB","unit":"၁ ချပ်","cat":"snacks","glyph":"cake","sample":false},{"id":"home:40","name":"ကိတ်အချပ် — ချောကလက်","photo":"https://safedeli.net/media/product/388dcd32c6495ae9614b09cc3e5ed04d.jpg","price":20.0,"currency":"THB","unit":"၁ ချပ်","cat":"snacks","glyph":"cake","sample":false},{"id":"home:41","name":"ကိတ်အချပ် — စတော်ဘယ်ရီ","photo":"https://safedeli.net/media/product/388dcd32c6495ae9614b09cc3e5ed04d.jpg","price":20.0,"currency":"THB","unit":"၁ ချပ်","cat":"snacks","glyph":"cake","sample":false},{"id":"home:42","name":"ကိတ်အချပ် — ဘလူးဘယ်ရီ","photo":"https://safedeli.net/media/product/388dcd32c6495ae9614b09cc3e5ed04d.jpg","price":20.0,"currency":"THB","unit":"၁ ချပ်","cat":"snacks","glyph":"cake","sample":false},{"id":"home:43","name":"ပေါင်မုန့် (၁ လုံး)","photo":"https://safedeli.net/media/product/388dcd32c6495ae9614b09cc3e5ed04d.jpg","price":20.0,"currency":"THB","unit":"၁ လုံး","cat":"snacks","glyph":"cake","sample":false},{"id":"home:44","name":"ပေါင်မုန့်ကင် — ထောပတ် သကြား","photo":"","price":20.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:45","name":"ပေါင်မုန့်ကင် — ထောပတ် နို့ သကြား","photo":"","price":20.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:46","name":"ပေါင်မုန့်ကင် — ချောကလက်","photo":"","price":25.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:47","name":"ပေါင်မုန့်ကင် — စံခယား (အုန်းယို)","photo":"","price":25.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:48","name":"ပေါင်မုန့်ကင် — ငှက်ပျော ချောကလက်","photo":"","price":30.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:49","name":"ပေါင်မုန့်ကင် — ငရုတ်ယို + ဝက်သားမျှင်","photo":"","price":25.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:50","name":"ပေါင်မုန့်ကင် — ငရုတ်ယို + ပုစွန်တု","photo":"","price":25.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:51","name":"ပီဇာ ပေါင်မုန့်ကင် — ပြောင်း + ချိစ်","photo":"","price":35.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:52","name":"ပီဇာ ပေါင်မုန့်ကင် — ပုစွန်တု + ချိစ်","photo":"","price":35.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:53","name":"မီနီ ဆန်းဒဝှစ် — ဝက်သားမျှင် သုပ်ဆော့","photo":"","price":25.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"cake","sample":false},{"id":"home:54","name":"စတော်ဘယ်ရီ နို့စိမ်း (၁ ပုလင်း)","photo":"","price":30.0,"currency":"THB","unit":"၁ ပုလင်း","cat":"drinks","glyph":"juice","sample":false},{"id":"home:55","name":"စတော်ဘယ်ရီ ဒိန်ချဉ် (၁ ပုလင်း)","photo":"","price":35.0,"currency":"THB","unit":"၁ ပုလင်း","cat":"drinks","glyph":"juice","sample":false},{"id":"home:56","name":"ပန်းရောင်နို့ (၁ ပုလင်း)","photo":"","price":20.0,"currency":"THB","unit":"၁ ပုလင်း","cat":"drinks","glyph":"juice","sample":false},{"id":"home:57","name":"ထိုင်းလက်ဖက်ရည် (၁ ပုလင်း)","photo":"","price":20.0,"currency":"THB","unit":"၁ ပုလင်း","cat":"drinks","glyph":"coffee","sample":false},{"id":"home:58","name":"အိမ်လုပ် ဂရိ ဒိန်ချဉ် — အသေး (S)","photo":"","price":79.0,"currency":"THB","unit":"၁ ခွက်","cat":"snacks","glyph":"bowl","sample":false},{"id":"home:59","name":"အိမ်လုပ် ဂရိ ဒိန်ချဉ် — အလတ် (M)","photo":"","price":99.0,"currency":"THB","unit":"၁ ခွက်","cat":"snacks","glyph":"bowl","sample":false},{"id":"home:60","name":"အိမ်လုပ် ဂရိ ဒိန်ချဉ် — အကြီး (L)","photo":"","price":129.0,"currency":"THB","unit":"၁ ခွက်","cat":"snacks","glyph":"bowl","sample":false},{"id":"home:61","name":"Signature ထောပတ် ကွတ်ကီး (၁ ဘူး)","photo":"","price":50.0,"currency":"THB","unit":"၁ ဘူး","cat":"snacks","glyph":"cake","sample":false},{"id":"home:62","name":"အာလူးဖုတ် မူရင်း + ချိစ်","photo":"","price":80.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"bowl","sample":false},{"id":"home:63","name":"အာလူးဖုတ် + ချိစ် + ပြောင်း","photo":"","price":100.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"bowl","sample":false},{"id":"home:64","name":"အာလူးဖုတ် + ချိစ် + ဘေကွန်","photo":"","price":100.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"bowl","sample":false},{"id":"home:65","name":"အာလူးဖုတ် + ချိစ် + တူနာ (Tuna Spud)","photo":"","price":110.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"bowl","sample":false},{"id":"home:66","name":"အာလူးဖုတ် + ချိစ် + ဝက်သားနှပ်","photo":"","price":120.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"bowl","sample":false},{"id":"home:67","name":"အာလူးဖုတ် + ချိစ် + ကြက်သားနှပ်","photo":"","price":120.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"bowl","sample":false},{"id":"home:68","name":"အာလူးဖုတ် + ချိစ် + အမဲသား ဟင်း","photo":"","price":130.0,"currency":"THB","unit":"၁ ခု","cat":"snacks","glyph":"bowl","sample":false},{"id":"home:69","name":"အမဲသား လှေခေါက်ဆွဲ","photo":"","price":60.0,"currency":"THB","unit":"၁ ပွဲ","cat":"noodles","glyph":"noodle","sample":false},{"id":"home:70","name":"ထိုင်း လက်ဖက်ရည်အေး (၁ ခွက်)","photo":"","price":30.0,"currency":"THB","unit":"၁ ခွက်","cat":"drinks","glyph":"coffee","sample":false},{"id":"home:71","name":"ကာပရောင် ဝက်သားနှပ် ထမင်း + ကြက်ဥမွှေ အထူး","photo":"","price":80.0,"currency":"THB","unit":"၁ ပွဲ","cat":"rice","glyph":"bowl","sample":false},{"id":"home:72","name":"ပုစွန် ပတ်ထိုင်း","photo":"","price":129.0,"currency":"THB","unit":"၁ ပွဲ","cat":"noodles","glyph":"noodle","sample":false},{"id":"home:73","name":"လာတေး ကော်ဖီ","photo":"","price":55.0,"currency":"THB","unit":"၁ ခွက်","cat":"drinks","glyph":"coffee","sample":false},{"id":"home:74","name":"ရှမ်းခေါက်ဆွဲ","photo":"","price":35.0,"currency":"THB","unit":"၁ ပွဲ","cat":"noodles","glyph":"noodle","sample":false},{"id":"home:75","name":"ကြက်ကြော်","photo":"https://safedeli.net/media/product/3593a8834878d898241f9633334ff559.webp","price":15.0,"currency":"THB","unit":"၁ ပွဲ","cat":"lunch","glyph":"fried","sample":false},{"id":"home:76","name":"ကောက်ညှင်း","photo":"","price":10.0,"currency":"THB","unit":"၁ ပွဲ","cat":"breakfast","glyph":"bowl","sample":false},{"id":"home:77","name":"ဖက်ထုတ် ပေါင်း","photo":"https://safedeli.net/media/product/03460586c69bd58a4d440134b91da5e6.webp","price":50.0,"currency":"THB","unit":"၁ ပွဲ","cat":"fast","glyph":"dumpling","sample":false},{"id":"home:78","name":"Bubble Tea","photo":"https://safedeli.net/media/product/17e4169ca6fcb59220904729520f9f7a.webp","price":50.0,"currency":"THB","unit":"၁ ခွက်","cat":"drinks","glyph":"boba","sample":false},{"id":"home:79","name":"ပေါက်စီ","photo":"https://safedeli.net/media/product/92e3b568004b0da82836fbb48eff2671.webp","price":15.0,"currency":"THB","unit":"၁ ခု","cat":"breakfast","glyph":"bao","sample":false}];
 function visibleDishes() {
   /* v19.26: a non-empty server list replaces the baked-in dishes; an
      empty list (or an unreachable API) keeps POPULAR as the fallback. */
   /* v19.62 (Min 2026-11-21): a dish with NO price is DELETED from the
      menu entirely — it never renders, in any view. No disabled button,
      no placeholder: priceless dishes simply do not exist for customers. */
-  var list = (liveDishes && liveDishes.length) ? liveDishes.slice()
-    : (isOwnerView() ? POPULAR.slice() : POPULAR.filter(function (d) { return !d.sample; }));
+  /* v19.67: the fallback is the REAL baked-in menu — instant, priced,
+     never the priceless POPULAR samples (which the filter below deletes). */
+  var list = (liveDishes && liveDishes.length) ? liveDishes.slice() : BAKED_DISHES.slice();
   return list.filter(function (d) { return typeof d.price === "number"; });
 }
 </script>
